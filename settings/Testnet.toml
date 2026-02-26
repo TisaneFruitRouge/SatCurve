@@ -1,0 +1,8 @@
+[network]
+name = "testnet"
+deployment_fee_rate = 10
+
+[accounts.deployer]
+mnemonic = ""   # Fill with: clarinet generate-mnemonic
+balance = 0
+derivation = "m/44'/5757'/0'/0/0"

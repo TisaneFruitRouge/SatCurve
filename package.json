@@ -1,0 +1,24 @@
+{
+  "name": "satcurve",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Fixed-rate lending and zero-coupon bonds on Stacks L2",
+  "scripts": {
+    "dev": "pnpm --filter @satcurve/web dev",
+    "build": "pnpm --filter @satcurve/web build",
+    "bot": "pnpm --filter @satcurve/bot dev",
+    "test:contracts": "vitest run",
+    "check": "clarinet check",
+    "console": "clarinet console",
+    "devnet": "clarinet devnet start"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@stacks/clarinet-sdk": "^3.9.0",
+    "@stacks/transactions": "^7.2.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.0.7",
+    "vitest-environment-clarinet": "^3.0.0"
+  }
+}

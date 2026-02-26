@@ -1,0 +1,8 @@
+[network]
+name = "mainnet"
+deployment_fee_rate = 10
+
+[accounts.deployer]
+mnemonic = ""   # NEVER commit. Use a hardware wallet or CI secret.
+balance = 0
+derivation = "m/44'/5757'/0'/0/0"

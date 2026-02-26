@@ -1,0 +1,31 @@
+[project]
+name = "satcurve"
+description = "Fixed-rate lending and zero-coupon bonds on Stacks L2"
+authors = []
+telemetry = false
+cache_dir = "./.cache"
+
+# External requirements
+requirements = [
+  { contract_id = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token" }
+]
+
+[contracts.vault-engine]
+path = "contracts/vault-engine.clar"
+clarity_version = 2
+epoch = "3.0"
+
+[contracts.bond-factory]
+path = "contracts/bond-factory.clar"
+clarity_version = 2
+epoch = "3.0"
+
+[contracts.yield-oracle]
+path = "contracts/yield-oracle.clar"
+clarity_version = 2
+epoch = "3.0"
+
+[contracts.redemption-pool]
+path = "contracts/redemption-pool.clar"
+clarity_version = 2
+epoch = "3.0"

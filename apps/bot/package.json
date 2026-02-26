@@ -1,0 +1,24 @@
+{
+  "name": "@satcurve/bot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@satcurve/types": "workspace:*",
+    "@stacks/blockchain-api-client": "^7.7.0",
+    "@stacks/network": "^6.13.0",
+    "@stacks/transactions": "^6.17.0",
+    "@redstone-finance/sdk": "^0.6.0",
+    "dotenv": "^16.4.0",
+    "winston": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.0"
+  }
+}
