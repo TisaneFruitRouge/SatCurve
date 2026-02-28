@@ -1,70 +1,181 @@
-This is the blueprint for **SatCurve**. In a hackathon setting, a professional README is often the difference between a "cool idea" and a "winning project" because it proves you’ve mapped out the edge cases.
+# SatCurve: Bitcoin Yield Stripping on Stacks
+
+SatCurve is a Pendle-style yield-stripping protocol for **sBTC** on the Stacks L2 (Nakamoto / Epoch 3.0). It lets users decompose locked Bitcoin into two independently tradeable claims:
+
+- **PT — Principal Token** (NFT): a zero-coupon bond that redeems for the original sBTC at a fixed maturity block.
+- **YT — Yield Token** (NFT): a variable yield claim that collects real sBTC stacking rewards deposited by a relayer bot over the bond's lifetime.
+
+The core invariant is: **1 sBTC locked = 1 PT + 1 YT**. Both tokens can be held, transferred, or traded separately, enabling a decentralized fixed-rate / floating-rate market on Bitcoin yield.
 
 ---
 
-# SatCurve: The Bitcoin Yield Curve
+## How It Works
 
-**Fixed-Rate Lending & Zero-Coupon Bonds on Stacks L2**
+### Locking (create-bond)
 
-### Project Vision
+A user calls `create-bond(sbtc-amount, term-blocks)`. The protocol:
 
-Bitcoin is the world’s premier collateral, yet its DeFi ecosystem is plagued by volatile, unpredictable yields. **SatCurve** brings institutional-grade debt markets to Bitcoin. By leveraging **sBTC** and the **Nakamoto Release**, SatCurve allows users to mint "Zero-Coupon Bonds" (zBTC) that mature at a 1:1 ratio with Bitcoin, creating the first decentralized, fixed-rate yield curve for the Bitcoin economy.
+1. Pulls `sbtc-amount` sBTC into the contract.
+2. Mints a **PT NFT** (bond-id) to the caller — redeemable for `sbtc-amount` at/after `block-height + term-blocks`.
+3. Mints a **YT NFT** (bond-id) to the caller — entitled to all stacking rewards deposited for that bond.
 
----
+No oracle call, no APR snapshot. The protocol is a pure custody mechanism at creation time.
 
-### Technical Architecture
+### Yield Accumulation (deposit-yield)
 
-The architecture is designed to be "Bitcoin-native," meaning it prioritizes security and predictability over complex, opaque abstractions.
+An off-chain relayer bot watches the Stacks network for sBTC stacking rewards and calls `deposit-yield(bond-id, amount)` each PoX cycle, depositing the actual earned rewards into the contract. Deposits are only accepted before maturity.
 
-#### **1. The Protocol Layers**
+### Collecting Yield (collect-yield)
 
-* **Settlement Layer (Bitcoin L1):** Finality and security. Native BTC is locked in the Stacks threshold multisig.
-* **Execution Layer (Stacks L2):** High-speed (5s) blocks using Clarity 2.0. This handles the vault logic and sBTC movement.
-* **Liquidity Layer (sBTC):** The 1:1 Bitcoin-backed asset used as the primary engine for the bonds.
+The YT holder calls `collect-yield(bond-id)` at any time to claim accumulated but uncollected rewards. This can be called multiple times as new rewards arrive. **The YT NFT is not burned** — the same token keeps collecting across PoX cycles.
 
-#### **2. Core Smart Contract Components (Clarity)**
+### Redeeming Principal (redeem-principal)
 
-* **`vault-engine.clar`**: Manages user collateral (STX or sBTC). It tracks the "Health Factor" of every position.
-* **`bond-factory.clar`**: Mints SIP-010 compatible **zBTC tokens**. Each token is timestamped with a Bitcoin block height maturity date (e.g., `zBTC-AUG-26`).
-* **`yield-oracle.clar`**: Pulls real-time price data from **Pyth Network** to ensure vaults stay over-collateralized.
-* **`redemption-pool.clar`**: A locked reserve that ensures 1 zBTC can always be swapped for 1 sBTC once the Bitcoin block height reaches maturity.
+At or after the maturity block, the PT holder calls `redeem-principal(bond-id)` to burn the PT NFT and receive back the original `sbtc-amount`.
 
-#### **3. The "Decidability" Safety Engine**
+### Early Exit (combine)
 
-Unlike Ethereum’s Solidity, SatCurve utilizes Clarity’s **post-conditions**. Every transaction includes a "Safety Guard" that will abort the execution if the contract attempts to transfer more BTC than the user explicitly authorized in the UI.
+If the same address holds both PT and YT, they can call `combine(bond-id)` before maturity to burn both NFTs and immediately receive the original sBTC plus any uncollected yield. This is the protocol's "undo" mechanism.
 
----
+### Secondary Market
 
-### The User Workflow
+Both PT and YT are transferable NFTs via `transfer-pt` and `transfer-yt`. This enables:
 
-1. **Deposit:** User deposits 1.1 sBTC as collateral into a SatCurve Vault.
-2. **Mint:** The protocol calculates the "Discount Rate" (e.g., 5%). The user mints **1 zBTC** (Face Value) but only "owes" the discounted value.
-3. **Utilize:** The user sells that zBTC on the secondary market for immediate liquidity OR holds it to earn the "Fixed Yield" as it approaches maturity.
-4. **Redeem:** On the maturity date (e.g., Bitcoin Block #950,000), any holder of 1 zBTC can burn it to claim 1 sBTC from the SatCurve reserve.
+- **PT market**: PT trades at a discount to sBTC face value, implying a fixed yield to maturity.
+- **YT market**: YT is priced on expected future stacking rewards, a floating-rate instrument.
 
 ---
 
-### Technical Challenges & Solutions
+## Contracts
 
-| Challenge | SatCurve Solution |
-| --- | --- |
-| **Oracle Latency** | Integration with **RedStone Oracles** for sub-minute price updates on Stacks. |
-| **Liquidation Fairness** | **"First-look" Liquidation:** A 5-block window where the vault owner can self-repay before the public can trigger a liquidation. |
-| **Capital Efficiency** | **Tiered Collateral:** Allowing "Stacking" rewards from locked STX to automatically pay down the zBTC debt interest. |
-| **Time Sync** | All protocol maturity dates are pegged to **Bitcoin Block Height**, not Unix timestamps, ensuring L1/L2 synchronization. |
-
----
-
-### Roadmap for the Hackathon
-
-* **Phase 1:** Deploy the `zBTC` SIP-010 token and basic Vault contract on Devnet.
-* **Phase 2:** Integrate **Stacks.js** with **sBTC** testnet tokens for the "Minting" UI.
-* **Phase 3:** Implement the **Liquidation Bot** (Node.js) that monitors the `vault-engine` map.
-* **Phase 4:** Finalize the "Yield Dashboard" showing the implied APY for different bond durations.
+| Contract | Status | Description |
+|---|---|---|
+| `yield-oracle.clar` | **Implemented** | Authorized relayer oracle for BTC/USD, STX/USD prices and Stacking APR |
+| `bond-factory.clar` | **Implemented** | PT + YT NFT lifecycle: create, deposit-yield, collect-yield, redeem, combine |
+| `redemption-pool.clar` | **Implemented** | sBTC escrow layer; only vault-engine may call escrow/release |
+| `vault-engine.clar` | **Implemented** | Pool-level yield stripping: fungible PT + YT tokens, Global Yield Index |
 
 ---
 
-### Security Audit Logic (The Pitch)
+## yield-oracle.clar
 
-* **No Re-entrancy:** Clarity is non-Turing complete; the "DAO Hack" style of exploit is mathematically impossible on SatCurve.
-* **Non-Custodial:** At no point does the SatCurve team have access to the underlying BTC; the protocol is governed by the decentralized Stacker set.
+Stores three data feeds pushed on-chain by authorized relayers (RedStone pull model). Consuming contracts call the `get-trusted-*` functions, which revert if the data is stale.
+
+| Feed | Unit | Staleness window |
+|---|---|---|
+| BTC/USD | 6 decimals ($1 = u1_000_000) | 300 blocks (~25 min) |
+| STX/USD | 6 decimals | 300 blocks (~25 min) |
+| Stacking APR | Basis points (1 bps = 0.01%) | 4320 blocks (~6 hours) |
+
+BTC/USD and STX/USD are used together to derive the implicit BTC/STX rate for vault health factor calculations.
+
+**Key functions:**
+
+- `set-prices(btc-price, stx-price)` — atomic dual-feed update for the relayer
+- `set-stacking-apr(apr)` — update stacking APR once per PoX cycle
+- `get-trusted-btc-price` / `get-trusted-stx-price` / `get-trusted-stacking-apr` — gated getters that revert on stale data
+- `authorize-relayer(principal)` / `revoke-relayer(principal)` — owner-only relayer management
+
+---
+
+## bond-factory.clar
+
+The core product. Manages the full lifecycle of PT and YT NFTs backed by locked sBTC.
+
+### sBTC Units
+
+`1 uint = 1 satoshi`. `1 sBTC = u100_000_000`.
+
+### Bond Data
+
+Each bond (identified by a `uint` bond-id) stores:
+
+```
+sbtc-amount        — sBTC locked (satoshis)
+maturity-block     — PT redeemable at/after this Stacks block
+created-block
+principal-redeemed — true after redeem-principal
+combined           — true after combine (early exit)
+yield-deposited    — cumulative sBTC deposited by the relayer
+yield-withdrawn    — cumulative sBTC paid out to YT holders
+```
+
+### Error Codes
+
+| Code | Meaning |
+|---|---|
+| u100 | Unauthorized |
+| u200 | Bond not found |
+| u201 | Not yet matured |
+| u202 | Principal already redeemed |
+| u203 | Caller is not the PT owner |
+| u204 | Caller is not the YT owner |
+| u205 | Invalid amount (zero) |
+| u206 | Invalid term (zero or exceeds 2-year max) |
+| u207 | Bond already combined |
+| u208 | Cannot deposit yield after maturity |
+| u209 | Cannot combine at or after maturity |
+
+### Constants
+
+- `MAX-TERM-BLOCKS = u12614400` — 2-year maximum bond term (~5 s/block on Nakamoto)
+
+---
+
+## Development
+
+**Requirements:** [Clarinet](https://github.com/hirosystems/clarinet) 3.x, Node.js, pnpm.
+
+```bash
+# Install dependencies
+pnpm install
+
+# Check all contracts for syntax and type errors
+clarinet check
+
+# Run all tests (vitest + clarinet-sdk)
+pnpm test:contracts
+```
+
+**Test coverage:** 151 tests across 4 contracts (48 yield-oracle, 42 bond-factory, 13 redemption-pool, 48 vault-engine).
+
+---
+
+## Architecture
+
+```
+Bitcoin L1
+    |  (sBTC peg — threshold multisig)
+    v
+Stacks L2 (Nakamoto, Epoch 3.0, ~5s blocks)
+    |
+    +-- yield-oracle.clar      <-- relayer pushes BTC/USD, STX/USD, Stacking APR
+    |
+    +-- bond-factory.clar      <-- users lock sBTC, receive PT + YT NFTs
+    |       |
+    |       +-- PT NFT  -->  secondary market (fixed-rate buyers)
+    |       +-- YT NFT  -->  secondary market (yield seekers)
+    |
+    +-- vault-engine.clar      <-- pool model: fungible PT+YT, Global Yield Index
+    |       |
+    |       +-- PT FT  -->  1 unit redeemable for 1 sat at maturity
+    |       +-- YT FT  -->  proportional share of pool stacking rewards
+    |
+    +-- redemption-pool.clar   <-- sBTC escrow; only vault-engine may escrow/release
+```
+
+### Relayer Bot Responsibilities
+
+1. **Price feeds** — call `set-prices(btc-price, stx-price)` at regular intervals.
+2. **Stacking APR** — call `set-stacking-apr(apr)` once per PoX cycle.
+3. **Yield deposits** — for each active bond, call `deposit-yield(bond-id, amount)` when stacking rewards arrive.
+
+---
+
+## Security Properties
+
+- **No re-entrancy**: Clarity is decidable and non-Turing-complete; state is committed before any inter-contract calls.
+- **Explicit post-conditions**: Every sBTC transfer requires the user's wallet to authorize the exact amount, enforced at the VM level.
+- **Stale-data protection**: `get-trusted-*` oracle functions revert if data exceeds the staleness window, preventing protocol actions on outdated prices.
+- **Double-spend guards**: `principal-redeemed` and `combined` flags are checked before NFT ownership, ensuring correct errors even after NFT burns.
+- **Zero-amount guard**: All sBTC transfers are skipped when `amount = 0` to avoid `ft-transfer?` rejections at the token level.

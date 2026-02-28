@@ -1,15 +1,3 @@
-export interface Vault {
-  id: string;
-  owner: string;
-  collateralAmount: bigint;    // in microsBTC (1e8)
-  debtAmount: bigint;          // in zBTC units
-  healthFactor: number;        // percentage, e.g. 150 = 150%
-  isAtRisk: boolean;
-}
-
-export interface HealthFactorUpdate {
-  vaultId: string;
-  previousHealthFactor: number;
-  newHealthFactor: number;
-  blockHeight: number;
-}
+// This file is intentionally empty.
+// The CDP/collateral vault model was replaced by the Pendle-style
+// yield-stripping design. See pool.ts for vault-engine types.
