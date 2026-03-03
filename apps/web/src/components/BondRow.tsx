@@ -35,15 +35,22 @@ export function BondRow({ bond, currentBlock }: BondRowProps) {
   return (
     <Link to="/bonds/$bondId" params={{ bondId: bondIdStr }} className="block">
       <Card className="bg-surface border-border hover:border-brand/50 transition-colors cursor-pointer">
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4 pb-4 space-y-2">
+          {/* Top row: ID + status badge */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold">
               Bond #{bondIdStr.padStart(3, "0")}
             </span>
-            <div className="flex items-center gap-3">
-              {claimable > 0n && (
-                <span className="text-xs text-success font-mono">
-                  +{formatSats(claimable)} yield
+            <div className="flex items-center gap-2">
+              {/* PT / YT ownership chips */}
+              {bond.holdsPt && (
+                <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-brand/10 text-brand border border-brand/30">
+                  PT
+                </span>
+              )}
+              {bond.holdsYt && (
+                <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/30">
+                  YT
                 </span>
               )}
               <Badge variant="outline" className={className}>
@@ -51,12 +58,26 @@ export function BondRow({ bond, currentBlock }: BondRowProps) {
               </Badge>
             </div>
           </div>
-          <p className="mt-1 text-sm text-text-muted">
+
+          {/* Principal + maturity */}
+          <p className="text-sm text-text-muted">
             <span className="font-mono text-text">{formatSats(bond.sbtcAmount)} sBTC</span>
             {" · "}
             {status === "active" ? "Matures " : "Matured "}
             <BlockTooltip block={bond.maturityBlock} currentBlock={currentBlock} />
           </p>
+
+          {/* Action callouts */}
+          {status === "matured" && bond.holdsPt && (
+            <p className="text-xs text-brand font-medium">
+              Ready to redeem principal →
+            </p>
+          )}
+          {bond.holdsYt && claimable > 0n && (
+            <p className="text-xs text-success font-mono">
+              +{formatSats(claimable)} sBTC yield available
+            </p>
+          )}
         </CardContent>
       </Card>
     </Link>

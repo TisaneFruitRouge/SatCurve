@@ -19,7 +19,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../components/ui/dialog";
-import { formatSats } from "../lib/format";
+import { formatSats, formatUsd } from "../lib/format";
+import { computeBondValuation } from "../lib/bondValuation";
+import { useYieldOracle } from "../hooks/useYieldOracle";
 import { stacksNetwork } from "../lib/stacks";
 import { CONTRACT_ADDRESSES } from "../lib/contracts";
 import type { Bond } from "@satcurve/types";
@@ -62,6 +64,8 @@ export function BondDetailPage() {
   const [redeemPending, setRedeemPending] = useState(false);
   const [combinePending, setCombinePending] = useState(false);
   const [showCombineDialog, setShowCombineDialog] = useState(false);
+
+  const { oracle } = useYieldOracle();
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
 
@@ -111,9 +115,15 @@ export function BondDetailPage() {
         // cvToValue(ResponseOkCV(TupleCV)) returns { type: "tuple", value: { field: { type, value } } }
         const wrapper = cvToValue(bondRes) as { value: Record<string, { value: unknown }> };
         const raw = wrapper.value;
-        // cvToValue(OptionalCV(PrincipalCV)) returns the address string, or null for none
-        const ptOwner = cvToValue(ptOwnerRes) as string | null;
-        const ytOwner = cvToValue(ytOwnerRes) as string | null;
+        // cvToValue(OptionalSomeCV(PrincipalCV)) → cvToJSON(principal) → { type: "principal", value: "ST1..." }
+        // Must unwrap .value to get the address string; returns null for none.
+        const ptOwnerRaw = cvToValue(ptOwnerRes) as { value: string } | null;
+        const ytOwnerRaw = cvToValue(ytOwnerRes) as { value: string } | null;
+        const ptOwner = ptOwnerRaw?.value ?? null;
+        const ytOwner = ytOwnerRaw?.value ?? null;
+
+        const holdsPt = address !== null && ptOwner === address;
+        const holdsYt = address !== null && ytOwner === address;
 
         setBond({
           tokenId: BigInt(bondId),
@@ -125,10 +135,12 @@ export function BondDetailPage() {
           combined: Boolean(raw["combined"]!.value),
           yieldDeposited: BigInt(String(raw["yield-deposited"]!.value)),
           yieldWithdrawn: BigInt(String(raw["yield-withdrawn"]!.value)),
+          holdsPt,
+          holdsYt,
         });
 
-        setIsPtOwner(address !== null && ptOwner === address);
-        setIsYtOwner(address !== null && ytOwner === address);
+        setIsPtOwner(holdsPt);
+        setIsYtOwner(holdsYt);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load bond");
@@ -178,6 +190,19 @@ export function BondDetailPage() {
   const status = bond && currentBlock !== null ? getBondStatus(bond, currentBlock) : null;
   const { label, className } = status ? STATUS_BADGE[status] : { label: "", className: "" };
   const claimable = bond ? bond.yieldDeposited - bond.yieldWithdrawn : 0n;
+  const isTerminated = status === "combined" || status === "redeemed";
+
+  const valuation =
+    bond && currentBlock !== null && oracle && !isTerminated
+      ? computeBondValuation(
+          bond.sbtcAmount,
+          bond.maturityBlock,
+          currentBlock,
+          bond.yieldDeposited,
+          bond.yieldWithdrawn,
+          oracle,
+        )
+      : null;
 
   return (
     <>
@@ -200,8 +225,8 @@ export function BondDetailPage() {
 
         {loading && !bond ? (
           <div className="space-y-3">
-            <Skeleton className="h-32 w-full bg-surface" />
-            <Skeleton className="h-24 w-full bg-surface" />
+            <Skeleton className="h-40 w-full bg-surface" />
+            <Skeleton className="h-40 w-full bg-surface" />
           </div>
         ) : error ? (
           <Card className="bg-surface border-border">
@@ -217,75 +242,219 @@ export function BondDetailPage() {
           </Card>
         ) : bond ? (
           <>
-            {/* Principal */}
+            {/* PT — Principal Token */}
             <Card className="bg-surface border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs text-text-muted font-normal uppercase tracking-wider">
-                  Principal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <p className="text-2xl font-mono font-semibold">
-                  {formatSats(bond.sbtcAmount)}{" "}
-                  <span className="text-base text-text-muted font-normal">sBTC</span>
-                </p>
-                <div className="flex flex-wrap gap-6 text-sm text-text-muted">
-                  <span>
-                    Created at{" "}
-                    {currentBlock !== null ? (
-                      <BlockTooltip block={bond.createdBlock} currentBlock={currentBlock} />
-                    ) : (
-                      `#${bond.createdBlock.toLocaleString()}`
-                    )}
-                  </span>
-                  <span>
-                    {status === "active" ? "Matures at " : "Matured at "}
-                    {currentBlock !== null ? (
-                      <BlockTooltip block={bond.maturityBlock} currentBlock={currentBlock} />
-                    ) : (
-                      `#${bond.maturityBlock.toLocaleString()}`
-                    )}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Yield */}
-            <Card className="bg-surface border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs text-text-muted font-normal uppercase tracking-wider">
-                  Yield
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-muted">Total deposited</span>
-                  <span className="font-mono">{formatSats(bond.yieldDeposited)} sBTC</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-muted">Already collected</span>
-                  <span className="font-mono text-text-faint">
-                    {formatSats(bond.yieldWithdrawn)} sBTC
-                  </span>
-                </div>
-                <Separator className="bg-border" />
-                <div className="flex justify-between text-sm font-semibold">
-                  <span>Available to collect</span>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs text-text-muted font-normal uppercase tracking-wider">
+                    PT — Principal Token
+                  </CardTitle>
                   <span
-                    className={`font-mono ${
-                      claimable > 0n ? "text-success" : "text-text-faint"
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                      isPtOwner
+                        ? "border-brand/40 text-brand bg-brand/10"
+                        : "border-border text-text-faint"
                     }`}
                   >
-                    {formatSats(claimable)} sBTC
+                    {isPtOwner ? "You hold" : "Sold"}
                   </span>
                 </div>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-0">
+                {/* Current value — hero number */}
+                <div>
+                  <p className="text-xs text-text-faint uppercase tracking-wider mb-1">
+                    Current Value
+                  </p>
+                  {valuation ? (
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-3xl font-semibold tabular-nums">
+                        {formatUsd(valuation.ptValueUsd)}
+                      </span>
+                      <span className="text-base font-mono text-text-muted">
+                        {formatSats(valuation.ptValueSats)} sBTC
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-3xl font-mono font-semibold">
+                      {formatSats(bond.sbtcAmount)}{" "}
+                      <span className="text-base text-text-muted font-normal">sBTC</span>
+                    </p>
+                  )}
+                  {valuation && (
+                    <p className="text-xs text-text-faint mt-1">
+                      Oracle estimate · {valuation.aprPct} stacking APR ·{" "}
+                      {valuation.yearsRemaining > 0
+                        ? `${(valuation.yearsRemaining * 365).toFixed(0)} days to maturity`
+                        : "matured"}
+                    </p>
+                  )}
+                </div>
+
+                <Separator className="bg-border" />
+
+                {/* Contract details */}
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Face value (at maturity)</span>
+                    <span className="font-mono">{formatSats(bond.sbtcAmount)} sBTC</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Created at</span>
+                    <span>
+                      {currentBlock !== null ? (
+                        <BlockTooltip block={bond.createdBlock} currentBlock={currentBlock} />
+                      ) : (
+                        `#${bond.createdBlock.toLocaleString()}`
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">
+                      {status === "active" ? "Matures at" : "Matured at"}
+                    </span>
+                    <span>
+                      {currentBlock !== null ? (
+                        <BlockTooltip block={bond.maturityBlock} currentBlock={currentBlock} />
+                      ) : (
+                        `#${bond.maturityBlock.toLocaleString()}`
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {isPtOwner && status === "matured" && (
+                  <TxButton
+                    variant="outline"
+                    pending={redeemPending}
+                    onClick={() =>
+                      callBondFactory("redeem-principal", [uintCV(bondId)], setRedeemPending)
+                    }
+                    className="border-brand text-brand hover:bg-brand/10"
+                  >
+                    Redeem {formatSats(bond.sbtcAmount)} sBTC
+                  </TxButton>
+                )}
               </CardContent>
             </Card>
 
-            {/* Actions */}
-            {(status === "active" || status === "matured") && (
-              <div className="flex gap-3 flex-wrap">
-                {isYtOwner && (
+            {/* YT — Yield Token */}
+            <Card className="bg-surface border-border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs text-text-muted font-normal uppercase tracking-wider">
+                    YT — Yield Token
+                  </CardTitle>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                      isYtOwner
+                        ? "border-success/40 text-success bg-success/10"
+                        : "border-border text-text-faint"
+                    }`}
+                  >
+                    {isYtOwner ? "You hold" : "Sold"}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-4">
+                {/* Total YT value — hero number */}
+                <div>
+                  <p className="text-xs text-text-faint uppercase tracking-wider mb-1">
+                    {status === "active" ? "Estimated Total Value" : "Remaining Value"}
+                  </p>
+                  {valuation ? (
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-3xl font-semibold tabular-nums">
+                        ~{formatUsd(valuation.ytTotalEstUsd)}
+                      </span>
+                      <span className="text-base font-mono text-text-muted">
+                        ~{formatSats(valuation.ytTotalEstSats)} sBTC
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-3xl font-mono font-semibold">
+                      {formatSats(claimable)}{" "}
+                      <span className="text-base text-text-muted font-normal">sBTC</span>
+                    </p>
+                  )}
+                  {valuation && (
+                    <p className="text-xs text-text-faint mt-1">
+                      Oracle estimate · {valuation.aprPct} stacking APR
+                    </p>
+                  )}
+                </div>
+
+                <Separator className="bg-border" />
+
+                {/* Value breakdown */}
+                {valuation && (
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">Claimable now (certain)</span>
+                      <span className="font-mono">
+                        {formatSats(valuation.ytCertainSats)} sBTC
+                        <span className="text-text-faint ml-2">{formatUsd(valuation.ytCertainUsd)}</span>
+                      </span>
+                    </div>
+                    {status === "active" && (
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">Expected future yield</span>
+                        <span className="font-mono text-text-faint">
+                          ~{formatSats(valuation.ytExpectedSats)} sBTC
+                          <span className="ml-2">~{formatUsd(valuation.ytExpectedUsd)}</span>
+                        </span>
+                      </div>
+                    )}
+                    <Separator className="bg-border" />
+                  </div>
+                )}
+
+                {/* Accounting */}
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Total deposited</span>
+                    <span className="font-mono">{formatSats(bond.yieldDeposited)} sBTC</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Already collected</span>
+                    <span className="font-mono text-text-faint">
+                      − {formatSats(bond.yieldWithdrawn)} sBTC
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span>Available to collect</span>
+                    <span
+                      className={`font-mono ${
+                        claimable > 0n ? "text-success" : "text-text-faint"
+                      }`}
+                    >
+                      {formatSats(claimable)} sBTC
+                    </span>
+                  </div>
+                </div>
+
+                {/* Accrual window */}
+                <p className="text-xs text-text-faint">
+                  {status === "active" ? (
+                    <>
+                      Yield accrues until{" "}
+                      {currentBlock !== null ? (
+                        <BlockTooltip block={bond.maturityBlock} currentBlock={currentBlock} />
+                      ) : (
+                        `block #${bond.maturityBlock.toLocaleString()}`
+                      )}
+                      {" "}— same expiry as the PT. Market price will reflect actual supply
+                      &amp; demand once the secondary market launches.
+                    </>
+                  ) : (
+                    <>
+                      Yield accrual ended at block #{bond.maturityBlock.toLocaleString()}.
+                      Uncollected yield can still be claimed.
+                    </>
+                  )}
+                </p>
+
+                {isYtOwner && !isTerminated && (
                   <TxButton
                     variant="outline"
                     pending={collectPending}
@@ -295,32 +464,22 @@ export function BondDetailPage() {
                     }
                     className="border-border text-text hover:bg-secondary"
                   >
-                    Collect Yield
+                    Collect {formatSats(claimable)} sBTC
                   </TxButton>
                 )}
+              </CardContent>
+            </Card>
 
-                {status === "matured" && isPtOwner && (
-                  <TxButton
-                    variant="outline"
-                    pending={redeemPending}
-                    onClick={() =>
-                      callBondFactory("redeem-principal", [uintCV(bondId)], setRedeemPending)
-                    }
-                    className="border-border text-text hover:bg-secondary"
-                  >
-                    Redeem Principal
-                  </TxButton>
-                )}
-
-                {status === "active" && isPtOwner && isYtOwner && (
-                  <TxButton
-                    variant="destructive"
-                    pending={combinePending}
-                    onClick={() => setShowCombineDialog(true)}
-                  >
-                    Combine (Early Exit)
-                  </TxButton>
-                )}
+            {/* Combine — early exit: burns both PT + YT before maturity */}
+            {status === "active" && isPtOwner && isYtOwner && (
+              <div className="flex">
+                <TxButton
+                  variant="destructive"
+                  pending={combinePending}
+                  onClick={() => setShowCombineDialog(true)}
+                >
+                  Combine (Early Exit)
+                </TxButton>
               </div>
             )}
           </>

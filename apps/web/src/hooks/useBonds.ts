@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { callReadOnlyFunction, cvToValue, uintCV, principalCV } from "@stacks/transactions";
+import { callReadOnlyFunction, cvToValue, uintCV } from "@stacks/transactions";
 import { stacksNetwork } from "../lib/stacks";
 import { CONTRACT_ADDRESSES } from "../lib/contracts";
 import type { Bond } from "@satcurve/types";
@@ -23,11 +23,9 @@ async function fetchNftBondIds(
   assetIdentifier: string,
 ): Promise<Set<number>> {
   const url = `${apiUrl}/extended/v1/tokens/nft/holdings?principal=${encodeURIComponent(principal)}&asset_identifiers=${encodeURIComponent(assetIdentifier)}&limit=${NFT_PAGE_LIMIT}`;
-  console.log("[useBonds] fetching NFT holdings:", url);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`NFT holdings fetch failed: ${res.status}`);
   const data = (await res.json()) as NftHoldingsResponse;
-  console.log("[useBonds] NFT holdings response:", JSON.stringify(data));
   const ids = new Set<number>();
   for (const item of data.results) {
     // repr looks like "u42" — strip the leading "u"
@@ -71,17 +69,6 @@ export function useBonds(address: string | null): UseBondsResult {
 
     async function load() {
       try {
-        // Sanity check: how many bonds exist on-chain at all?
-        const countRes = await callReadOnlyFunction({
-          contractAddress, contractName,
-          functionName: "get-bond-count",
-          functionArgs: [],
-          network: stacksNetwork,
-          senderAddress: address!,
-        });
-        const totalOnChain = Number((cvToValue(countRes) as { value: string }).value);
-        console.log("[useBonds] get-bond-count =", totalOnChain);
-
         // Fetch PT and YT holdings in parallel — user may hold either or both
         const [ptIds, ytIds] = await Promise.all([
           fetchNftBondIds(apiUrl, address!, ptAsset),
@@ -121,7 +108,6 @@ export function useBonds(address: string | null): UseBondsResult {
             value: Record<string, { value: unknown }>;
           };
           const f = wrapper.value;
-          console.log("[useBonds] get-bond raw:", JSON.stringify(wrapper));
           return {
             tokenId: BigInt(id),
             owner: address!,
@@ -132,6 +118,8 @@ export function useBonds(address: string | null): UseBondsResult {
             combined: Boolean(f["combined"]!.value),
             yieldDeposited: BigInt(String(f["yield-deposited"]!.value)),
             yieldWithdrawn: BigInt(String(f["yield-withdrawn"]!.value)),
+            holdsPt: ptIds.has(id),
+            holdsYt: ytIds.has(id),
           };
         });
 

@@ -32,6 +32,16 @@ export function formatRelative(date: Date): string {
   return rtf.format(Math.round(diffDays / 365), "year");
 }
 
+/** Format a USD amount with 2 decimal places and $ prefix. */
+export function formatUsd(usd: number): string {
+  return usd.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export const TERM_PRESET_BLOCKS: Record<string, number> = {
   "3M": 1_555_200,
   "6M": 3_110_400,

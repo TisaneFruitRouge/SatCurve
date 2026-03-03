@@ -9,9 +9,11 @@
  *   MATURITY_BLOCKS=10000 pnpm --filter @satcurve/bot exec tsx scripts/init-devnet.ts
  *
  * What it does:
- *   1. sbtc-token::mint            — funds each test wallet with 10 sBTC
- *   2. redemption-pool::set-vault-engine  — authorizes vault-engine to escrow/release sBTC
- *   3. vault-engine::initialize           — sets the pool maturity block
+ *   1. sbtc-token::mint                   — funds each test wallet with 10 sBTC
+ *   2. yield-oracle::set-btc-price        — seeds BTC/USD price ($95,000)
+ *   3. yield-oracle::set-stacking-apr     — seeds stacking APR (8.00%)
+ *   4. redemption-pool::set-vault-engine  — authorizes vault-engine to escrow/release sBTC
+ *   5. vault-engine::initialize           — sets the pool maturity block
  */
 
 import { readFileSync } from "fs";
@@ -151,7 +153,30 @@ async function main() {
     );
   }
 
-  // 2. Authorize vault-engine to call escrow/release on redemption-pool
+  // 2. Seed the yield oracle with realistic devnet values
+  // BTC/USD price: $95,000 = 95_000_000_000 (unit: $0.000001)
+  // Stacking APR: 8.00% = 800 basis points
+  console.log("\nSeeding yield oracle…");
+  await call(
+    privateKey,
+    network,
+    "yield-oracle",
+    "set-btc-price",
+    [uintCV(95_000_000_000)],
+    "yield-oracle::set-btc-price ($95,000)",
+    nonce++,
+  );
+  await call(
+    privateKey,
+    network,
+    "yield-oracle",
+    "set-stacking-apr",
+    [uintCV(800)],
+    "yield-oracle::set-stacking-apr (8.00%)",
+    nonce++,
+  );
+
+  // 4. Authorize vault-engine to call escrow/release on redemption-pool
   await call(
     privateKey,
     network,
@@ -162,7 +187,7 @@ async function main() {
     nonce++,
   );
 
-  // 3. Initialize vault-engine with the maturity block
+  // 5. Initialize vault-engine with the maturity block
   await call(
     privateKey,
     network,

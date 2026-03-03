@@ -19,6 +19,8 @@ export interface Bond {
   combined: boolean;           // true once combine() was called (early exit before maturity)
   yieldDeposited: bigint;      // total yield deposited by relayer so far (satoshis)
   yieldWithdrawn: bigint;      // yield already collected by YT holder (satoshis)
+  holdsPt: boolean;            // connected user currently holds the PT NFT
+  holdsYt: boolean;            // connected user currently holds the YT NFT
 }
 
 /**
