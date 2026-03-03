@@ -45,10 +45,13 @@ const SBTC_AMOUNT = 1_000_000_000;
 
 // All devnet test wallets (from settings/Devnet.toml)
 const TEST_WALLETS = [
-  { label: "deployer",        address: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM" },
-  { label: "wallet_1",        address: "ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5" },
-  { label: "wallet_2",        address: "ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG" },
-  { label: "liquidation-bot", address: "ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC" },
+  { label: "deployer", address: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM" },
+  { label: "wallet_1", address: "STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W" },
+  { label: "wallet_2", address: "STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W" },
+  {
+    label: "liquidation-bot",
+    address: "ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -59,8 +62,11 @@ function getDeployerPrivateKey(): string {
   const tomlPath = join(process.cwd(), "../../settings/Devnet.toml");
   const toml = readFileSync(tomlPath, "utf-8");
 
-  const match = /\[accounts\.deployer\][\s\S]*?mnemonic\s*=\s*"([^"]+)"/.exec(toml);
-  if (!match?.[1]) throw new Error("Could not find deployer mnemonic in settings/Devnet.toml");
+  const match = /\[accounts\.deployer\][\s\S]*?mnemonic\s*=\s*"([^"]+)"/.exec(
+    toml,
+  );
+  if (!match?.[1])
+    throw new Error("Could not find deployer mnemonic in settings/Devnet.toml");
 
   const seed = mnemonicToSeedSync(match[1]);
   const root = HDKey.fromMasterSeed(seed);
@@ -77,7 +83,7 @@ function getDeployerPrivateKey(): string {
 
 async function getNonce(): Promise<number> {
   const res = await fetch(`${API_URL}/v2/accounts/${DEPLOYER}?proof=0`);
-  const data = await res.json() as { nonce: number };
+  const data = (await res.json()) as { nonce: number };
   return data.nonce;
 }
 
@@ -88,7 +94,7 @@ async function call(
   functionName: string,
   args: ClarityValue[],
   label: string,
-  nonce: number
+  nonce: number,
 ) {
   const tx = await makeContractCall({
     network,
@@ -106,7 +112,9 @@ async function call(
   const result = await broadcastTransaction(tx, network);
 
   if ("error" in result && result.error) {
-    throw new Error(`${label} failed: ${result.error} — ${(result as { reason?: string }).reason ?? ""}`);
+    throw new Error(
+      `${label} failed: ${result.error} — ${(result as { reason?: string }).reason ?? ""}`,
+    );
   }
 
   const { txid } = result as { txid: string };
@@ -128,33 +136,41 @@ async function main() {
   let nonce = await getNonce();
 
   // 1. Mint sBTC to every test wallet
-  console.log(`\nMinting ${SBTC_AMOUNT} sats sBTC to ${TEST_WALLETS.length} wallets…`);
+  console.log(
+    `\nMinting ${SBTC_AMOUNT} sats sBTC to ${TEST_WALLETS.length} wallets…`,
+  );
   for (const wallet of TEST_WALLETS) {
     await call(
-      privateKey, network,
-      "sbtc-token", "mint",
+      privateKey,
+      network,
+      "sbtc-token",
+      "mint",
       [uintCV(SBTC_AMOUNT), principalCV(wallet.address)],
       `sbtc-token::mint → ${wallet.label} (${wallet.address})`,
-      nonce++
+      nonce++,
     );
   }
 
   // 2. Authorize vault-engine to call escrow/release on redemption-pool
   await call(
-    privateKey, network,
-    "redemption-pool", "set-vault-engine",
+    privateKey,
+    network,
+    "redemption-pool",
+    "set-vault-engine",
     [principalCV(`${DEPLOYER}.vault-engine`)],
     "redemption-pool::set-vault-engine",
-    nonce++
+    nonce++,
   );
 
   // 3. Initialize vault-engine with the maturity block
   await call(
-    privateKey, network,
-    "vault-engine", "initialize",
+    privateKey,
+    network,
+    "vault-engine",
+    "initialize",
     [uintCV(MATURITY_BLOCKS)],
     `vault-engine::initialize (maturity = block ${MATURITY_BLOCKS})`,
-    nonce++
+    nonce++,
   );
 
   console.log("\nDone. Vault is live and accepting deposits.");

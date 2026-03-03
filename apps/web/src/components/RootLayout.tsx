@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 const NAV_LINKS = [
   { to: "/" as const, label: "Dashboard" },
-  { to: "/vault" as const, label: "Vault" },
+  { to: "/bonds" as const, label: "Bonds" },
 ];
 
 export function RootLayout({ children }: { children: ReactNode }) {

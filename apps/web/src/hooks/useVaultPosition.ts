@@ -69,11 +69,12 @@ export function useVaultPosition(address: string | null): UseVaultPositionResult
           }),
         ]);
 
+        // strict=false (default) unwraps (ok uint) → string; strict=true would return {ok: BigInt}
         setPosition({
           address: address!,
-          ptBalance: BigInt(String(cvToValue(ptRes, true))),
-          ytBalance: BigInt(String(cvToValue(ytRes, true))),
-          claimableYield: BigInt(String(cvToValue(claimRes, true))),
+          ptBalance: BigInt(String(cvToValue(ptRes))),
+          ytBalance: BigInt(String(cvToValue(ytRes))),
+          claimableYield: BigInt(String(cvToValue(claimRes))),
         });
         setError(null);
       } catch (err) {

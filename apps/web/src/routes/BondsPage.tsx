@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { openContractCall } from "@stacks/connect";
-import { uintCV } from "@stacks/transactions";
+import { uintCV, PostConditionMode } from "@stacks/transactions";
 import { useWallet } from "../hooks/useWallet";
 import { useBonds } from "../hooks/useBonds";
+import { useSbtcBalance } from "../hooks/useSbtcBalance";
 import { useBlockHeight } from "../hooks/useBlockHeight";
 import { BondRow } from "../components/BondRow";
 import { AmountInput } from "../components/AmountInput";
@@ -47,9 +48,9 @@ export function BondsPage() {
   const { address, isConnected } = useWallet();
   const currentBlock = useBlockHeight();
   const { bonds, loading: bondsLoading, error: bondsError, refetch } = useBonds(address);
+  const { balance: sbtcBalance } = useSbtcBalance(address);
 
   const [amount, setAmount] = useState("");
-  const [amountError, setAmountError] = useState<string | undefined>();
   const [selectedTerm, setSelectedTerm] = useState<string>("3M");
   const [customBlocks, setCustomBlocks] = useState("");
   const [createPending, setCreatePending] = useState(false);
@@ -69,15 +70,15 @@ export function BondsPage() {
       ? "Maximum term is 2 years (12,614,400 blocks)"
       : undefined;
 
-  function handleAmountChange(value: string) {
-    setAmount(value);
-    const sats = parseSbtcInput(value);
-    if (!sats || sats <= 0n) {
-      setAmountError("Amount must be greater than 0");
-    } else {
-      setAmountError(undefined);
-    }
-  }
+  // Derived — auto-updates whenever amount OR sbtcBalance changes (e.g. balance loads after typing)
+  const amountError = useMemo(() => {
+    if (!amount) return undefined;
+    const sats = parseSbtcInput(amount);
+    if (!sats || sats <= 0n) return "Amount must be greater than 0";
+    if (sbtcBalance !== null && sats > sbtcBalance)
+      return `Insufficient sBTC — you have ${formatSats(sbtcBalance)} sBTC`;
+    return undefined;
+  }, [amount, sbtcBalance]);
 
   function handleCreateBond() {
     const sats = parsedAmount;
@@ -93,7 +94,9 @@ export function BondsPage() {
       functionName: "create-bond",
       functionArgs: [uintCV(sats), uintCV(termBlocks)],
       network: stacksNetwork,
-      onFinish: () => {
+      postConditionMode: PostConditionMode.Allow,
+      onFinish: (data) => {
+        console.log("[BondsPage] create-bond txid:", data.txId);
         setCreatePending(false);
         setAmount("");
         refetch();
@@ -104,9 +107,10 @@ export function BondsPage() {
 
   const canCreate =
     isConnected &&
+    sbtcBalance !== null &&
     parsedAmount !== null &&
     parsedAmount > 0n &&
-    !amountError &&
+    amountError === undefined &&
     termBlocks > 0 &&
     termBlocks <= MAX_TERM_BLOCKS;
 
@@ -128,7 +132,8 @@ export function BondsPage() {
             <>
               <AmountInput
                 value={amount}
-                onChange={handleAmountChange}
+                onChange={setAmount}
+                maxBalance={sbtcBalance ?? undefined}
                 error={amountError}
                 disabled={createPending}
               />
@@ -207,7 +212,7 @@ export function BondsPage() {
 
       {/* Bond List */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">My Bonds</h2>
+        <h2 className="text-xl font-semibold mb-4">Your Bonds</h2>
 
         {!isConnected ? (
           <Card className="bg-surface border-border">
@@ -249,7 +254,6 @@ export function BondsPage() {
                 key={bond.tokenId.toString()}
                 bond={bond}
                 currentBlock={currentBlock ?? 0}
-                onActionSuccess={refetch}
               />
             ))}
           </div>

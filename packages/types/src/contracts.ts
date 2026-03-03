@@ -3,4 +3,5 @@ export interface ContractAddresses {
   bondFactory: string;
   yieldOracle: string;
   redemptionPool: string;
+  sbtcToken: string;
 }
