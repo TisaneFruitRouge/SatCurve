@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import "./index.css";
 import { routeTree } from "./routeTree";
+import { WalletProvider } from "./providers/WalletProvider";
 
 const router = createRouter({ routeTree });
 
@@ -14,6 +15,8 @@ declare module "@tanstack/react-router" {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <WalletProvider>
+      <RouterProvider router={router} />
+    </WalletProvider>
   </StrictMode>
 );

@@ -12,7 +12,7 @@ genesis:
     balance: '100000000000000'
     sbtc-balance: '1000000000'
   - name: wallet_1
-    address: ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5
+    address: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
     balance: '100000000000000'
     sbtc-balance: '1000000000'
   - name: wallet_2
@@ -39,19 +39,9 @@ plan:
   - id: 0
     transactions:
     - transaction-type: emulated-contract-publish
-      contract-name: sbtc-registry
-      emulated-sender: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4
-      path: ./.cache/requirements/SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-registry.clar
-      clarity-version: 3
-    - transaction-type: emulated-contract-publish
       contract-name: sbtc-token
-      emulated-sender: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4
-      path: ./.cache/requirements/SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token.clar
-      clarity-version: 3
-    - transaction-type: emulated-contract-publish
-      contract-name: sbtc-deposit
-      emulated-sender: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4
-      path: ./.cache/requirements/SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-deposit.clar
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/sbtc-token.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
       contract-name: bond-factory

@@ -6,7 +6,6 @@ import {
 import { RootLayout } from "./components/RootLayout";
 import { HomePage } from "./routes/HomePage";
 import { VaultPage } from "./routes/VaultPage";
-import { BondsPage } from "./routes/BondsPage";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -28,14 +27,7 @@ const vaultRoute = createRoute({
   component: VaultPage,
 });
 
-const bondsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/bonds",
-  component: BondsPage,
-});
-
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   vaultRoute,
-  bondsRoute,
 ]);

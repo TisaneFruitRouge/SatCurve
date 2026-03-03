@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Cl, ClarityType } from "@stacks/transactions";
 
 // sBTC constants
@@ -56,6 +56,15 @@ describe("bond-factory (v2)", () => {
     deployer = accounts.get("deployer")!;
     wallet1 = accounts.get("wallet_1")!;
     wallet2 = accounts.get("wallet_2")!;
+  });
+
+  // Mint sBTC to all wallets before each test (genesis sbtc-balance is not
+  // used; sbtc-token is now a local contract deployed at the deployer address).
+  beforeEach(() => {
+    const amount = Cl.uint(1_000_000_000n); // 10 sBTC
+    simnet.callPublicFn("sbtc-token", "mint", [amount, Cl.principal(deployer)], deployer);
+    simnet.callPublicFn("sbtc-token", "mint", [amount, Cl.principal(wallet1)], deployer);
+    simnet.callPublicFn("sbtc-token", "mint", [amount, Cl.principal(wallet2)], deployer);
   });
 
   // =====================================================================

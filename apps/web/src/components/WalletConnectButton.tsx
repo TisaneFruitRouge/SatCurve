@@ -1,44 +1,24 @@
-import { showConnect, disconnect, getUserData } from "@stacks/connect";
-import { useState, useEffect } from "react";
+import { useWallet } from "../providers/WalletProvider";
+import { Button } from "./ui/button";
 
 export function WalletConnectButton() {
-  const [address, setAddress] = useState<string | null>(null);
+  const { address, isConnected, connect, disconnect } = useWallet();
 
-  useEffect(() => {
-    getUserData().then((data) => {
-      if (data) setAddress(data.profile?.stxAddress?.mainnet ?? null);
-    });
-  }, []);
-
-  if (address) {
+  if (isConnected && address) {
     return (
-      <button
-        onClick={() => {
-          disconnect();
-          setAddress(null);
-        }}
-        className="px-4 py-2 rounded-lg border border-white/20 text-sm hover:bg-white/10 transition"
-      >
+      <Button variant="outline" size="sm" onClick={disconnect}>
         {address.slice(0, 6)}…{address.slice(-4)}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <button
-      onClick={() =>
-        showConnect({
-          appDetails: { name: "SatCurve", icon: "/logo.svg" },
-          onFinish: ({ userSession }) => {
-            const data = userSession.loadUserData();
-            setAddress(data.profile?.stxAddress?.mainnet ?? null);
-          },
-          onCancel: () => {},
-        })
-      }
-      className="px-4 py-2 rounded-lg bg-[#f7931a] text-black font-semibold text-sm hover:bg-[#e8820a] transition"
+    <Button
+      size="sm"
+      onClick={connect}
+      className="bg-brand text-primary-foreground font-semibold hover:bg-brand-hover"
     >
       Connect Wallet
-    </button>
+    </Button>
   );
 }

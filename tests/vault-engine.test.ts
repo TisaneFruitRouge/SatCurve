@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Cl } from "@stacks/transactions";
 
 // -----------------------------------------------------------------------
@@ -74,6 +74,13 @@ describe("vault-engine", () => {
     deployer = accounts.get("deployer")!;
     wallet1  = accounts.get("wallet_1")!;
     wallet2  = accounts.get("wallet_2")!;
+  });
+
+  beforeEach(() => {
+    const amount = Cl.uint(1_000_000_000n); // 10 sBTC
+    simnet.callPublicFn("sbtc-token", "mint", [amount, Cl.principal(deployer)], deployer);
+    simnet.callPublicFn("sbtc-token", "mint", [amount, Cl.principal(wallet1)], deployer);
+    simnet.callPublicFn("sbtc-token", "mint", [amount, Cl.principal(wallet2)], deployer);
   });
 
   // =====================================================================

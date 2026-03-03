@@ -5,10 +5,13 @@ authors = []
 telemetry = false
 cache_dir = "./.cache"
 
-# External requirements
-requirements = [
-  { contract_id = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token" }
-]
+# No external requirements -- sbtc-token is a local devnet/simnet mock.
+requirements = []
+
+[contracts.sbtc-token]
+path = "contracts/sbtc-token.clar"
+clarity_version = 3
+epoch = "3.0"
 
 [contracts.vault-engine]
 path = "contracts/vault-engine.clar"

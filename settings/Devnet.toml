@@ -5,25 +5,23 @@ deployment_fee_rate = 10
 [accounts.deployer]
 mnemonic = "twice kind fence tip hidden tilt action fragile skin nothing glory cousin green tomorrow spring wrist shed math olympic multiply hip blue scout claw"
 balance = 100_000_000_000_000
-sbtc_balance = 1_000_000_000
 # stx_address: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+# sBTC is minted via `make init` (sbtc-token::mint) — sbtc_balance would trigger
+# Clarinet's broken sBTC deposit flow which requires real Bitcoin block hashes.
 
 [accounts.wallet_1]
-mnemonic = "sell invite acquire kitten bamboo drastic jelly vivid peace spawn twice guilt pave pen trash pretty park cube fragile unaware remain midnight betray rebuild"
+mnemonic = "simple forward hamster beyond bone immune perfect drive evoke swift game kiwi clerk canal enjoy luggage curve chimney genre banner draft cool cluster marble"
 balance = 100_000_000_000_000
-sbtc_balance = 1_000_000_000
 # stx_address: ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5
 
 [accounts.wallet_2]
 mnemonic = "hold excess usual excess ring elephant install account glad dry fragile donkey gaze humble truck breeze nation gasp vacuum limb head keep delay hospital"
 balance = 100_000_000_000_000
-sbtc_balance = 1_000_000_000
 # stx_address: ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG
 
 [accounts.liquidation-bot]
 mnemonic = "cycle puppy glare enroll cost improve round trend wrist mushroom scorpion tower claim oppose clever elephant dinosaur eight problem before frozen dune wagon high"
 balance = 100_000_000_000_000
-sbtc_balance = 1_000_000_000
 # stx_address: ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC
 
 [devnet]

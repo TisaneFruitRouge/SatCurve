@@ -1,1 +1,103 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* shadcn radius scale */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* shadcn standard color mappings (used by generated ui/ components) */
+  --color-background:             var(--background);
+  --color-foreground:             var(--foreground);
+  --color-card:                   var(--card);
+  --color-card-foreground:        var(--card-foreground);
+  --color-popover:                var(--popover);
+  --color-popover-foreground:     var(--popover-foreground);
+  --color-primary:                var(--primary);
+  --color-primary-foreground:     var(--primary-foreground);
+  --color-secondary:              var(--secondary);
+  --color-secondary-foreground:   var(--secondary-foreground);
+  --color-muted:                  var(--muted);
+  --color-muted-foreground:       var(--muted-foreground);
+  --color-accent:                 var(--accent);
+  --color-accent-foreground:      var(--accent-foreground);
+  --color-destructive:            var(--destructive);
+  --color-border:                 var(--border);
+  --color-input:                  var(--input);
+  --color-ring:                   var(--ring);
+
+  /* SatCurve semantic aliases (used by custom components) */
+  --color-bg:          var(--background);
+  --color-surface:     var(--card);
+  --color-surface-2:   var(--secondary);
+  --color-brand:       var(--primary);
+  --color-brand-hover: var(--primary-hover);
+  --color-brand-muted: var(--primary-muted);
+  --color-text:        var(--foreground);
+  --color-text-muted:  var(--muted-foreground);
+  --color-text-faint:  var(--text-faint);
+  --color-success:     var(--success);
+  --color-warning:     var(--warning);
+  --color-error:       var(--destructive);
+}
+
+/* SatCurve dark theme — always dark, no light/dark switching */
+:root {
+  --radius: 0.5rem;
+
+  /* Backgrounds */
+  --background:          oklch(0.07 0 0);      /* #0a0a0a */
+  --foreground:          oklch(0.985 0 0);     /* #fafafa */
+  --card:                oklch(0.12 0 0);      /* #121212 */
+  --card-foreground:     oklch(0.985 0 0);
+  --popover:             oklch(0.12 0 0);
+  --popover-foreground:  oklch(0.985 0 0);
+
+  /* Brand — Bitcoin orange */
+  --primary:             oklch(0.72 0.18 52);  /* #f7931a */
+  --primary-foreground:  oklch(0.07 0 0);      /* black text on orange */
+  --primary-hover:       oklch(0.66 0.17 52);  /* #e8820a */
+  --primary-muted:       oklch(0.72 0.18 52 / 0.12);
+
+  /* Surfaces */
+  --secondary:           oklch(0.18 0 0);      /* #1c1c1c */
+  --secondary-foreground:oklch(0.985 0 0);
+  --muted:               oklch(0.18 0 0);
+  --muted-foreground:    oklch(0.60 0 0);      /* #8c8c8c */
+  --text-faint:          oklch(0.42 0 0);      /* #595959 */
+  --accent:              oklch(0.18 0 0);
+  --accent-foreground:   oklch(0.985 0 0);
+
+  /* Structural */
+  --border:              oklch(0.23 0 0);      /* #262626 */
+  --input:               oklch(0.18 0 0);
+  --ring:                oklch(0.72 0.18 52);  /* orange focus ring */
+
+  /* Semantic */
+  --destructive:         oklch(0.57 0.20 27);  /* #ef4444 */
+  --success:             oklch(0.65 0.20 142); /* #22c55e */
+  --warning:             oklch(0.77 0.15 70);  /* #f59e0b */
+
+  /* Chart palette */
+  --chart-1: oklch(0.72 0.18 52);
+  --chart-2: oklch(0.65 0.20 142);
+  --chart-3: oklch(0.60 0.15 200);
+  --chart-4: oklch(0.77 0.15 70);
+  --chart-5: oklch(0.57 0.20 27);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}

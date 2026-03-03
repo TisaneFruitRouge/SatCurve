@@ -61,7 +61,7 @@
   (begin
     (asserts! (is-vault-engine) err-unauthorized)
     (asserts! (> amount u0) err-invalid-amount)
-    (try! (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+    (try! (contract-call? .sbtc-token
       transfer amount from (as-contract tx-sender) none))
     (let ((new-total (+ (var-get total-escrowed) amount)))
       (var-set total-escrowed new-total)
@@ -77,7 +77,7 @@
     (asserts! (is-vault-engine) err-unauthorized)
     (asserts! (> amount u0) err-invalid-amount)
     (try! (as-contract
-      (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+      (contract-call? .sbtc-token
         transfer amount tx-sender recipient none)))
     (let ((new-total (- (var-get total-escrowed) amount)))
       (var-set total-escrowed new-total)

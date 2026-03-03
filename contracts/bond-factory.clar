@@ -105,7 +105,7 @@
       (maturity (+ block-height term-blocks))
     )
       ;; Pull sBTC from caller into this contract.
-      (try! (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+      (try! (contract-call? .sbtc-token
         transfer sbtc-amount tx-sender (as-contract tx-sender) none))
 
       ;; Mint PT and YT NFTs to the caller
@@ -143,7 +143,7 @@
       (asserts! (< block-height (get maturity-block bond)) err-deposit-after-maturity)
       (asserts! (> amount u0) err-invalid-amount)
 
-      (try! (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+      (try! (contract-call? .sbtc-token
         transfer amount tx-sender (as-contract tx-sender) none))
 
       (let ((new-deposited (+ (get yield-deposited bond) amount)))
@@ -173,7 +173,7 @@
           yield-withdrawn: (+ (get yield-withdrawn bond) available)
         }))
         (try! (as-contract
-          (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+          (contract-call? .sbtc-token
             transfer available tx-sender claimer none)))
         (ok available)
       )
@@ -204,7 +204,7 @@
 
     ;; Send principal back. Contract is sender inside as-contract.
     (try! (as-contract
-      (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+      (contract-call? .sbtc-token
         transfer (get sbtc-amount bond) tx-sender recipient none)))
 
     (ok (get sbtc-amount bond))
@@ -237,13 +237,13 @@
 
     ;; Return principal
     (try! (as-contract
-      (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+      (contract-call? .sbtc-token
         transfer (get sbtc-amount bond) tx-sender recipient none)))
 
     ;; Return uncollected yield if any
     (if (> uncollected u0)
       (try! (as-contract
-        (contract-call? 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+        (contract-call? .sbtc-token
           transfer uncollected tx-sender recipient none)))
       true)
 

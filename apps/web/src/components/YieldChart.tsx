@@ -7,43 +7,70 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
 
-// Placeholder data — replace with live data from bond-factory contract
-const PLACEHOLDER_DATA = [
+export interface YieldDataPoint {
+  maturity: string;
+  apy: number;
+}
+
+const PLACEHOLDER_DATA: YieldDataPoint[] = [
   { maturity: "3M", apy: 3.2 },
   { maturity: "6M", apy: 4.1 },
   { maturity: "1Y", apy: 5.0 },
   { maturity: "2Y", apy: 5.8 },
-  { maturity: "3Y", apy: 6.3 },
 ];
 
-export function YieldChart() {
+interface YieldChartProps {
+  data?: YieldDataPoint[];
+  loading?: boolean;
+}
+
+export function YieldChart({ data, loading }: YieldChartProps) {
+  const chartData = data ?? PLACEHOLDER_DATA;
+  const isPlaceholder = !data;
+
   return (
-    <div className="bg-white/5 rounded-xl p-6 border border-white/10">
-      <p className="text-sm text-white/40 mb-4">
-        Implied APY by Maturity (placeholder)
-      </p>
-      <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={PLACEHOLDER_DATA}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="rgba(255,255,255,0.05)"
-          />
-          <XAxis dataKey="maturity" stroke="#ffffff60" />
-          <YAxis stroke="#ffffff60" unit="%" />
-          <Tooltip
-            contentStyle={{ backgroundColor: "#111", border: "none" }}
-            labelStyle={{ color: "#fff" }}
-          />
-          <Line
-            type="monotone"
-            dataKey="apy"
-            stroke="#f7931a"
-            strokeWidth={2}
-            dot={{ fill: "#f7931a" }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <Card className="bg-surface border-border">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-text-muted">
+          Implied APY by Maturity
+          {isPlaceholder && (
+            <span className="ml-2 text-xs text-text-faint">(placeholder)</span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-60 w-full bg-secondary" />
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="maturity" stroke="#8c8c8c" tick={{ fontSize: 12 }} />
+              <YAxis stroke="#8c8c8c" unit="%" tick={{ fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#121212",
+                  border: "1px solid #262626",
+                  borderRadius: "0.5rem",
+                }}
+                labelStyle={{ color: "#fafafa" }}
+                itemStyle={{ color: "#f7931a" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="apy"
+                stroke="#f7931a"
+                strokeWidth={2}
+                dot={{ fill: "#f7931a", r: 4 }}
+                activeDot={{ r: 6, fill: "#f7931a" }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </CardContent>
+    </Card>
   );
 }
