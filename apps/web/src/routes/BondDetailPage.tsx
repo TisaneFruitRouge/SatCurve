@@ -20,7 +20,7 @@ import {
   DialogFooter,
 } from "../components/ui/dialog";
 import { formatSats, formatUsd } from "../lib/format";
-import { computeBondValuation } from "../lib/bondValuation";
+import { computeBondValuation, computeImpliedRate } from "../lib/bondValuation";
 import { useYieldOracle } from "../hooks/useYieldOracle";
 import { stacksNetwork } from "../lib/stacks";
 import { CONTRACT_ADDRESSES } from "../lib/contracts";
@@ -65,6 +65,18 @@ export function BondDetailPage() {
   const [combinePending, setCombinePending] = useState(false);
   const [showCombineDialog, setShowCombineDialog] = useState(false);
 
+  type Listing = { seller: string; priceSats: bigint } | null;
+  const [ptListing, setPtListing] = useState<Listing>(null);
+  const [ytListing, setYtListing] = useState<Listing>(null);
+  const [ptListPrice, setPtListPrice] = useState("");
+  const [ytListPrice, setYtListPrice] = useState("");
+  const [ptListPending, setPtListPending] = useState(false);
+  const [ytListPending, setYtListPending] = useState(false);
+  const [ptCancelPending, setPtCancelPending] = useState(false);
+  const [ytCancelPending, setYtCancelPending] = useState(false);
+  const [ptBuyPending, setPtBuyPending] = useState(false);
+  const [ytBuyPending, setYtBuyPending] = useState(false);
+
   const { oracle } = useYieldOracle();
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
@@ -85,7 +97,10 @@ export function BondDetailPage() {
         const { contractAddress, contractName } = parseContractId(
           CONTRACT_ADDRESSES.bondFactory,
         );
-        const [bondRes, ptOwnerRes, ytOwnerRes] = await Promise.all([
+        const { contractAddress: mktCA, contractName: mktCN } = parseContractId(
+          CONTRACT_ADDRESSES.market,
+        );
+        const [bondRes, ptOwnerRes, ytOwnerRes, ptListRes, ytListRes] = await Promise.all([
           callReadOnlyFunction({
             contractAddress,
             contractName,
@@ -106,6 +121,22 @@ export function BondDetailPage() {
             contractAddress,
             contractName,
             functionName: "get-yt-owner",
+            functionArgs: [uintCV(bondId)],
+            network: stacksNetwork,
+            senderAddress,
+          }),
+          callReadOnlyFunction({
+            contractAddress: mktCA,
+            contractName: mktCN,
+            functionName: "get-pt-listing",
+            functionArgs: [uintCV(bondId)],
+            network: stacksNetwork,
+            senderAddress,
+          }),
+          callReadOnlyFunction({
+            contractAddress: mktCA,
+            contractName: mktCN,
+            functionName: "get-yt-listing",
             functionArgs: [uintCV(bondId)],
             network: stacksNetwork,
             senderAddress,
@@ -141,6 +172,20 @@ export function BondDetailPage() {
 
         setIsPtOwner(holdsPt);
         setIsYtOwner(holdsYt);
+
+        // Parse market listings — (optional { seller: principal, price-sats: uint })
+        // cvToValue on OptionalSome(Tuple) → { value: { field: { value } } }; None → null
+        const parseListing = (res: ReturnType<typeof cvToValue>) => {
+          const raw = res as { value: Record<string, { value: unknown }> } | null;
+          if (!raw?.value) return null;
+          return {
+            seller: String(raw.value["seller"]!.value),
+            priceSats: BigInt(String(raw.value["price-sats"]!.value)),
+          };
+        };
+        setPtListing(parseListing(cvToValue(ptListRes)));
+        setYtListing(parseListing(cvToValue(ytListRes)));
+
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load bond");
@@ -173,6 +218,35 @@ export function BondDetailPage() {
       onFinish: (data) => { console.log(`[BondDetailPage] ${functionName} txid:`, data.txId); setPending(false); refetch(); },
       onCancel: () => setPending(false),
     });
+  }
+
+  function callMarket(
+    functionName: string,
+    args: ReturnType<typeof uintCV>[],
+    setPending: (v: boolean) => void,
+  ) {
+    const { contractAddress, contractName } = parseContractId(CONTRACT_ADDRESSES.market);
+    setPending(true);
+    void openContractCall({
+      contractAddress,
+      contractName,
+      functionName,
+      functionArgs: args,
+      network: stacksNetwork,
+      postConditionMode: PostConditionMode.Allow,
+      onFinish: (data) => { console.log(`[BondDetailPage] market.${functionName} txid:`, data.txId); setPending(false); refetch(); },
+      onCancel: () => setPending(false),
+    });
+  }
+
+  function parsePriceInput(value: string): bigint | null {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === ".") return null;
+    const parts = trimmed.split(".");
+    if (parts.length > 2) return null;
+    const whole = parts[0] ?? "0";
+    const frac = (parts[1] ?? "").padEnd(8, "0").slice(0, 8);
+    try { return BigInt(whole) * 100_000_000n + BigInt(frac); } catch { return null; }
   }
 
   if (isNaN(bondId)) {
@@ -335,6 +409,78 @@ export function BondDetailPage() {
                     Redeem {formatSats(bond.sbtcAmount)} sBTC
                   </TxButton>
                 )}
+
+                {/* Market listing for PT */}
+                {!isTerminated && (
+                  <>
+                    <Separator className="bg-border" />
+                    <div className="space-y-2">
+                      <p className="text-xs text-text-muted uppercase tracking-wider">Market</p>
+                      {ptListing ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-text-muted">Listed at</span>
+                            <span className="font-mono font-semibold">{formatSats(ptListing.priceSats)} sBTC</span>
+                          </div>
+                          {valuation && valuation.yearsRemaining > 0 && (() => {
+                            const implied = computeImpliedRate(ptListing.priceSats, bond.sbtcAmount, valuation.yearsRemaining);
+                            return implied !== null ? (
+                              <p className="text-xs text-text-faint">
+                                Implied yield: {(implied * 100).toFixed(2)}% APR
+                              </p>
+                            ) : null;
+                          })()}
+                          {address === ptListing.seller ? (
+                            <TxButton
+                              variant="outline"
+                              size="sm"
+                              pending={ptCancelPending}
+                              onClick={() => callMarket("cancel-pt", [uintCV(bondId)], setPtCancelPending)}
+                              className="border-border text-text-muted hover:bg-secondary"
+                            >
+                              Cancel Listing
+                            </TxButton>
+                          ) : address ? (
+                            <TxButton
+                              variant="outline"
+                              size="sm"
+                              pending={ptBuyPending}
+                              onClick={() => callMarket("buy-pt", [uintCV(bondId)], setPtBuyPending)}
+                              className="border-brand text-brand hover:bg-brand/10"
+                            >
+                              Buy PT — {formatSats(ptListing.priceSats)} sBTC
+                            </TxButton>
+                          ) : null}
+                        </div>
+                      ) : isPtOwner && status === "active" ? (
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="Price in sBTC"
+                            value={ptListPrice}
+                            onChange={(e) => setPtListPrice(e.target.value)}
+                            className="flex-1 rounded border border-border bg-secondary px-3 py-1.5 text-sm text-text placeholder:text-text-faint focus:border-brand focus:outline-none"
+                          />
+                          <TxButton
+                            variant="outline"
+                            size="sm"
+                            pending={ptListPending}
+                            disabled={!parsePriceInput(ptListPrice)}
+                            onClick={() => {
+                              const price = parsePriceInput(ptListPrice);
+                              if (price) callMarket("list-pt", [uintCV(bondId), uintCV(price)], setPtListPending);
+                            }}
+                            className="border-border text-text hover:bg-secondary"
+                          >
+                            List PT
+                          </TxButton>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-faint">No active listing.</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -466,6 +612,70 @@ export function BondDetailPage() {
                   >
                     Collect {formatSats(claimable)} sBTC
                   </TxButton>
+                )}
+
+                {/* Market listing for YT */}
+                {!isTerminated && (
+                  <>
+                    <Separator className="bg-border" />
+                    <div className="space-y-2">
+                      <p className="text-xs text-text-muted uppercase tracking-wider">Market</p>
+                      {ytListing ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-text-muted">Listed at</span>
+                            <span className="font-mono font-semibold">{formatSats(ytListing.priceSats)} sBTC</span>
+                          </div>
+                          {address === ytListing.seller ? (
+                            <TxButton
+                              variant="outline"
+                              size="sm"
+                              pending={ytCancelPending}
+                              onClick={() => callMarket("cancel-yt", [uintCV(bondId)], setYtCancelPending)}
+                              className="border-border text-text-muted hover:bg-secondary"
+                            >
+                              Cancel Listing
+                            </TxButton>
+                          ) : address ? (
+                            <TxButton
+                              variant="outline"
+                              size="sm"
+                              pending={ytBuyPending}
+                              onClick={() => callMarket("buy-yt", [uintCV(bondId)], setYtBuyPending)}
+                              className="border-success text-success hover:bg-success/10"
+                            >
+                              Buy YT — {formatSats(ytListing.priceSats)} sBTC
+                            </TxButton>
+                          ) : null}
+                        </div>
+                      ) : isYtOwner && status === "active" ? (
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="Price in sBTC"
+                            value={ytListPrice}
+                            onChange={(e) => setYtListPrice(e.target.value)}
+                            className="flex-1 rounded border border-border bg-secondary px-3 py-1.5 text-sm text-text placeholder:text-text-faint focus:border-brand focus:outline-none"
+                          />
+                          <TxButton
+                            variant="outline"
+                            size="sm"
+                            pending={ytListPending}
+                            disabled={!parsePriceInput(ytListPrice)}
+                            onClick={() => {
+                              const price = parsePriceInput(ytListPrice);
+                              if (price) callMarket("list-yt", [uintCV(bondId), uintCV(price)], setYtListPending);
+                            }}
+                            className="border-border text-text hover:bg-secondary"
+                          >
+                            List YT
+                          </TxButton>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-faint">No active listing.</p>
+                      )}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

@@ -6,4 +6,5 @@ export const CONTRACT_ADDRESSES: ContractAddresses = {
   yieldOracle: import.meta.env.VITE_YIELD_ORACLE_ADDRESS ?? "",
   redemptionPool: import.meta.env.VITE_REDEMPTION_POOL_ADDRESS ?? "",
   sbtcToken: import.meta.env.VITE_SBTC_TOKEN_ADDRESS ?? "",
+  market: import.meta.env.VITE_MARKET_ADDRESS ?? "",
 };

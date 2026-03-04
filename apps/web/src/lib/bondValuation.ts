@@ -42,6 +42,23 @@ export interface BondValuation {
 }
 
 /**
+ * Pendle-style implied yield rate derived from a PT market price.
+ *
+ * Inverts the zero-coupon bond formula:
+ *   price = face / (1 + r)^t  =>  r = (face / price)^(1/t) - 1
+ *
+ * Returns null when undefined: matured bond, price >= face, or price zero.
+ */
+export function computeImpliedRate(
+  priceSats: bigint,
+  faceSats: bigint,
+  yearsRemaining: number,
+): number | null {
+  if (yearsRemaining <= 0 || priceSats <= 0n || priceSats >= faceSats) return null;
+  return Math.pow(Number(faceSats) / Number(priceSats), 1 / yearsRemaining) - 1;
+}
+
+/**
  * Compute oracle-implied valuations for a bond's PT and YT.
  *
  * Returns null if the oracle data is unavailable or the bond has already been

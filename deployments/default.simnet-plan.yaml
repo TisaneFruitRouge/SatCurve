@@ -59,6 +59,11 @@ plan:
       path: contracts/vault-engine.clar
       clarity-version: 2
     - transaction-type: emulated-contract-publish
+      contract-name: market
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/market.clar
+      clarity-version: 2
+    - transaction-type: emulated-contract-publish
       contract-name: yield-oracle
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/yield-oracle.clar

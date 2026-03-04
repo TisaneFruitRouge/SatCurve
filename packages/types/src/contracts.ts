@@ -4,4 +4,5 @@ export interface ContractAddresses {
   yieldOracle: string;
   redemptionPool: string;
   sbtcToken: string;
+  market: string;
 }

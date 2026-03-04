@@ -8,6 +8,7 @@ import { HomePage } from "./routes/HomePage";
 import { BondsPage } from "./routes/BondsPage";
 import { BondDetailPage } from "./routes/BondDetailPage";
 import { VaultPage } from "./routes/VaultPage";
+import { MarketPage } from "./routes/MarketPage";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -42,9 +43,16 @@ const vaultRoute = createRoute({
   component: VaultPage,
 });
 
+const marketRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/market",
+  component: MarketPage,
+});
+
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   bondsRoute,
   bondDetailRoute,
   vaultRoute,
+  marketRoute,
 ]);

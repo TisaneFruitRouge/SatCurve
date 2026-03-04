@@ -32,3 +32,8 @@ epoch = "3.0"
 path = "contracts/redemption-pool.clar"
 clarity_version = 2
 epoch = "3.0"
+
+[contracts.market]
+path = "contracts/market.clar"
+clarity_version = 2
+epoch = "3.0"
