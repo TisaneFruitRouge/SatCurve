@@ -22,30 +22,16 @@ plan:
       anchor-block-only: true
       clarity-version: 2
     - transaction-type: contract-publish
-      contract-name: redemption-pool
-      expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      cost: 27050
-      path: contracts/redemption-pool.clar
-      anchor-block-only: true
-      clarity-version: 2
-    - transaction-type: contract-publish
-      contract-name: vault-engine
-      expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      cost: 107960
-      path: contracts/vault-engine.clar
-      anchor-block-only: true
-      clarity-version: 2
-    - transaction-type: contract-publish
       contract-name: market
       expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      cost: 84860
+      cost: 40270
       path: contracts/market.clar
       anchor-block-only: true
       clarity-version: 2
     - transaction-type: contract-publish
       contract-name: yield-oracle
       expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      cost: 60010
+      cost: 59430
       path: contracts/yield-oracle.clar
       anchor-block-only: true
       clarity-version: 2

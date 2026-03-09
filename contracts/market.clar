@@ -2,17 +2,12 @@
 ;;
 ;; Fixed-price P2P orderbook for SatCurve PT and YT tokens.
 ;;
-;; Handles four asset types:
+;; Handles two asset types:
 ;;   - Bond-factory PT NFTs  (SIP-009, indexed by bond-id)
 ;;   - Bond-factory YT NFTs  (SIP-009, indexed by bond-id)
-;;   - Vault-engine PT FTs   (SIP-010, indexed by listing-id)
-;;   - Vault-engine YT FTs   (SIP-010, indexed by listing-id)
 ;;
 ;; NFT listings: escrow is via bond-factory transfer -- bond-factory tracks ownership,
 ;;   so listing transfers the NFT to this contract.
-;;
-;; FT listings: tokens are escrowed here; vault-engine::transfer-yt
-;;   is used for YT to ensure yield checkpointing happens correctly.
 
 ;; ===== ERROR CODES =====
 
@@ -20,7 +15,6 @@
 (define-constant err-already-listed    (err u401))
 (define-constant err-price-zero        (err u402))
 (define-constant err-not-seller        (err u403))
-(define-constant err-amount-zero       (err u404))
 
 ;; ===== NFT LISTINGS (bond-factory PT / YT) =====
 ;;
@@ -30,15 +24,6 @@
 (define-map pt-listings uint { seller: principal, price-sats: uint })
 (define-map yt-listings uint { seller: principal, price-sats: uint })
 
-;; ===== FT LISTINGS (vault-engine PT / YT) =====
-;;
-;; Each listing has a unique auto-incremented ID.
-;; Tokens are escrowed in this contract for the listing duration.
-
-(define-data-var ft-nonce uint u0)
-(define-map vault-pt-listings uint { seller: principal, amount: uint, price-sats: uint })
-(define-map vault-yt-listings uint { seller: principal, amount: uint, price-sats: uint })
-
 ;; ===== READ-ONLY =====
 
 (define-read-only (get-pt-listing (bond-id uint))
@@ -47,18 +32,6 @@
 
 (define-read-only (get-yt-listing (bond-id uint))
   (map-get? yt-listings bond-id)
-)
-
-(define-read-only (get-vault-pt-listing (listing-id uint))
-  (map-get? vault-pt-listings listing-id)
-)
-
-(define-read-only (get-vault-yt-listing (listing-id uint))
-  (map-get? vault-yt-listings listing-id)
-)
-
-(define-read-only (get-ft-nonce)
-  (var-get ft-nonce)
 )
 
 ;; ===== BOND-FACTORY PT (NFT) =====
@@ -144,102 +117,3 @@
   )
 )
 
-;; ===== VAULT-ENGINE PT (FT) =====
-
-;; List vault PT fungible tokens for sale.
-;; Tokens are escrowed in this contract.
-;; Returns the new listing-id.
-(define-public (list-vault-pt (amount uint) (price-sats uint))
-  (let (
-    (seller tx-sender)
-    (id     (+ (var-get ft-nonce) u1))
-  )
-    (asserts! (> amount u0) err-amount-zero)
-    (asserts! (> price-sats u0) err-price-zero)
-    (try! (contract-call? .vault-engine transfer-pt amount seller (as-contract tx-sender)))
-    (var-set ft-nonce id)
-    (map-set vault-pt-listings id { seller: seller, amount: amount, price-sats: price-sats })
-    (ok id)
-  )
-)
-
-;; Cancel a vault PT listing and return tokens to seller.
-(define-public (cancel-vault-pt (listing-id uint))
-  (let (
-    (seller  tx-sender)
-    (listing (unwrap! (map-get? vault-pt-listings listing-id) err-listing-not-found))
-    (amount  (get amount listing))
-  )
-    (asserts! (is-eq seller (get seller listing)) err-not-seller)
-    (try! (as-contract (contract-call? .vault-engine transfer-pt amount tx-sender seller)))
-    (map-delete vault-pt-listings listing-id)
-    (ok true)
-  )
-)
-
-;; Buy a vault PT listing. Transfers sBTC to seller and PT tokens to buyer.
-(define-public (buy-vault-pt (listing-id uint))
-  (let (
-    (buyer   tx-sender)
-    (listing (unwrap! (map-get? vault-pt-listings listing-id) err-listing-not-found))
-    (seller  (get seller listing))
-    (amount  (get amount listing))
-    (price   (get price-sats listing))
-  )
-    (try! (contract-call? .sbtc-token transfer price buyer seller none))
-    (try! (as-contract (contract-call? .vault-engine transfer-pt amount tx-sender buyer)))
-    (map-delete vault-pt-listings listing-id)
-    (ok true)
-  )
-)
-
-;; ===== VAULT-ENGINE YT (FT) =====
-;;
-;; Uses vault-engine::transfer-yt (not ft-transfer? directly) to ensure
-;; the yield checkpoint runs for both parties on every ownership change.
-
-;; List vault YT fungible tokens for sale.
-;; Returns the new listing-id.
-(define-public (list-vault-yt (amount uint) (price-sats uint))
-  (let (
-    (seller tx-sender)
-    (id     (+ (var-get ft-nonce) u1))
-  )
-    (asserts! (> amount u0) err-amount-zero)
-    (asserts! (> price-sats u0) err-price-zero)
-    (try! (contract-call? .vault-engine transfer-yt amount seller (as-contract tx-sender)))
-    (var-set ft-nonce id)
-    (map-set vault-yt-listings id { seller: seller, amount: amount, price-sats: price-sats })
-    (ok id)
-  )
-)
-
-;; Cancel a vault YT listing and return tokens to seller.
-(define-public (cancel-vault-yt (listing-id uint))
-  (let (
-    (seller  tx-sender)
-    (listing (unwrap! (map-get? vault-yt-listings listing-id) err-listing-not-found))
-    (amount  (get amount listing))
-  )
-    (asserts! (is-eq seller (get seller listing)) err-not-seller)
-    (try! (as-contract (contract-call? .vault-engine transfer-yt amount tx-sender seller)))
-    (map-delete vault-yt-listings listing-id)
-    (ok true)
-  )
-)
-
-;; Buy a vault YT listing. Transfers sBTC to seller and YT tokens to buyer.
-(define-public (buy-vault-yt (listing-id uint))
-  (let (
-    (buyer   tx-sender)
-    (listing (unwrap! (map-get? vault-yt-listings listing-id) err-listing-not-found))
-    (seller  (get seller listing))
-    (amount  (get amount listing))
-    (price   (get price-sats listing))
-  )
-    (try! (contract-call? .sbtc-token transfer price buyer seller none))
-    (try! (as-contract (contract-call? .vault-engine transfer-yt amount tx-sender buyer)))
-    (map-delete vault-yt-listings listing-id)
-    (ok true)
-  )
-)

@@ -9,9 +9,8 @@
  *     once per PoX cycle (reuses the same loop with a separate counter).
  *
  *  2. Yield loop  (every PoX cycle, ~14 h on mainnet)
- *     Distributes sBTC stacking rewards to both products:
- *       a. vault-engine: calls sync-yield(poolRewards)
- *       b. bond-factory: iterates active bonds, calls deposit-yield(bondId, bondReward)
+ *     Distributes sBTC stacking rewards to bond-factory bonds:
+ *       - iterates active bonds, calls deposit-yield(bondId, bondReward)
  *
  * PoX reward amounts are provided via distributeYield(). In production,
  * call this after detecting PoX cycle completion on-chain and computing
@@ -20,8 +19,8 @@
 
 import { uintCV } from "@stacks/transactions";
 import { config } from "./config";
-import { fetchMarketPrices, estimateStackingApr } from "./prices";
-import { contractCall, readOnly, readUint, getBotAddress } from "./stacks";
+import { fetchMarketPrices } from "./prices";
+import { contractCall, readOnly, getBotAddress } from "./stacks";
 import { logger } from "./logger";
 
 // -----------------------------------------------------------------------
@@ -37,8 +36,6 @@ export interface BondInfo {
 }
 
 export interface YieldDistribution {
-  /** Total sBTC rewards for the vault-engine pool (satoshis). */
-  poolRewards: bigint;
   /** Total sBTC rewards to distribute across ALL active bonds (satoshis). */
   totalBondRewards: bigint;
 }
@@ -81,21 +78,14 @@ export class Relayer {
    * Distribute sBTC stacking rewards for one PoX cycle.
    *
    * Call this after a PoX cycle completes and you have determined how many
-   * satoshis the vault-engine pool earned and how many the bond-factory bonds
-   * collectively earned (e.g. from monitoring the PoX contract or a rewards API).
+   * satoshis the bond-factory bonds collectively earned
+   * (e.g. from monitoring the PoX contract or a rewards API).
    *
    * The bond rewards are split proportionally by each bond's sbtcAmount.
    */
   async distributeYield(distribution: YieldDistribution): Promise<void> {
-    logger.info(
-      `Yield distribution — pool: ${distribution.poolRewards} sats, ` +
-      `bonds: ${distribution.totalBondRewards} sats`
-    );
-
-    await Promise.all([
-      this.syncPoolYield(distribution.poolRewards),
-      this.depositBondYield(distribution.totalBondRewards),
-    ]);
+    logger.info(`Yield distribution — bonds: ${distribution.totalBondRewards} sats`);
+    await this.depositBondYield(distribution.totalBondRewards);
   }
 
   // -----------------------------------------------------------------------
@@ -138,15 +128,7 @@ export class Relayer {
    * with on-chain PoX cycle data for a production deployment.
    */
   private async pushStackingApr(): Promise<void> {
-    const totalEscrowed = await readUint(config.contracts.redemptionPool, "get-total-escrowed");
-    if (totalEscrowed === 0n) {
-      logger.info("No sBTC escrowed — skipping APR update.");
-      return;
-    }
-
     // Placeholder: 5 % APR (500 bps). Replace with real PoX cycle data.
-    // estimateStackingApr(cycleRewardsSats, totalStackedSats) can be used
-    // once you have the actual cycle rewards from the PoX contract.
     const aprBps = 500n;
 
     await contractCall(
@@ -155,24 +137,6 @@ export class Relayer {
       [uintCV(aprBps)]
     );
     logger.info(`Pushed stacking APR: ${aprBps} bps (${Number(aprBps) / 100}%)`);
-  }
-
-  // -----------------------------------------------------------------------
-  // Yield: vault-engine pool
-  // -----------------------------------------------------------------------
-
-  private async syncPoolYield(poolRewards: bigint): Promise<void> {
-    if (poolRewards === 0n) {
-      logger.info("Pool rewards = 0, skipping sync-yield.");
-      return;
-    }
-
-    await contractCall(
-      config.contracts.vaultEngine,
-      "sync-yield",
-      [uintCV(poolRewards)]
-    );
-    logger.info(`vault-engine::sync-yield — ${poolRewards} sats distributed.`);
   }
 
   // -----------------------------------------------------------------------

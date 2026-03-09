@@ -49,16 +49,6 @@ plan:
       path: contracts/bond-factory.clar
       clarity-version: 2
     - transaction-type: emulated-contract-publish
-      contract-name: redemption-pool
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/redemption-pool.clar
-      clarity-version: 2
-    - transaction-type: emulated-contract-publish
-      contract-name: vault-engine
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/vault-engine.clar
-      clarity-version: 2
-    - transaction-type: emulated-contract-publish
       contract-name: market
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/market.clar

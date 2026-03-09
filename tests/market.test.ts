@@ -7,8 +7,7 @@ import { Cl, ClarityType } from "@stacks/transactions";
 
 const SBTC         = 100_000_000n; // 1 sBTC in satoshis
 const TERM_1Y      = 6_307_200n;
-const MATURITY_FAR = 100_000n;     // far future — never reached during tests
-const PRICE        = 90_000_000n;  // 0.9 sBTC — discounted PT price
+const PRICE        = 90_000_000n;  // 0.9 sBTC -- discounted PT price
 
 let deployer: string;
 let wallet1:  string;
@@ -36,25 +35,6 @@ function createBond(sender: string, amount = SBTC, term = TERM_1Y): bigint {
   return (result as any).value.value;
 }
 
-/** Wire redemption-pool → vault-engine and initialize pool. */
-function setupVault(maturity = MATURITY_FAR) {
-  simnet.callPublicFn(
-    "redemption-pool", "set-vault-engine",
-    [Cl.principal(`${deployer}.vault-engine`)],
-    deployer
-  );
-  simnet.callPublicFn(
-    "vault-engine", "initialize",
-    [Cl.uint(maturity)],
-    deployer
-  );
-}
-
-/** Deposit `amount` into vault-engine as `sender`. */
-function vaultDeposit(sender: string, amount = SBTC) {
-  return simnet.callPublicFn("vault-engine", "deposit", [Cl.uint(amount)], sender);
-}
-
 /** Get current PT NFT owner from bond-factory (returns Clarity optional principal). */
 function getPtOwner(bondId: bigint) {
   return simnet.callReadOnlyFn(
@@ -77,22 +57,6 @@ function sbtcBalance(address: string): bigint {
   return (result as any).value.value;
 }
 
-/** Get vault PT balance for an address. */
-function vaultPtBalance(address: string): bigint {
-  const { result } = simnet.callReadOnlyFn(
-    "vault-engine", "get-pt-balance", [Cl.principal(address)], deployer
-  );
-  return (result as any).value.value;
-}
-
-/** Get vault YT balance for an address. */
-function vaultYtBalance(address: string): bigint {
-  const { result } = simnet.callReadOnlyFn(
-    "vault-engine", "get-yt-balance", [Cl.principal(address)], deployer
-  );
-  return (result as any).value.value;
-}
-
 // -----------------------------------------------------------------------
 
 describe("market", () => {
@@ -111,11 +75,6 @@ describe("market", () => {
   // Read-only initial state
   // =====================================================================
   describe("initial state", () => {
-    it("ft-nonce starts at 0", () => {
-      const { result } = simnet.callReadOnlyFn("market", "get-ft-nonce", [], deployer);
-      expect(result).toEqual(Cl.uint(0));
-    });
-
     it("get-pt-listing returns none for unlisted bond", () => {
       const { result } = simnet.callReadOnlyFn("market", "get-pt-listing", [Cl.uint(1)], deployer);
       expect(result).toBeNone();
@@ -126,15 +85,6 @@ describe("market", () => {
       expect(result).toBeNone();
     });
 
-    it("get-vault-pt-listing returns none for non-existent id", () => {
-      const { result } = simnet.callReadOnlyFn("market", "get-vault-pt-listing", [Cl.uint(1)], deployer);
-      expect(result).toBeNone();
-    });
-
-    it("get-vault-yt-listing returns none for non-existent id", () => {
-      const { result } = simnet.callReadOnlyFn("market", "get-vault-yt-listing", [Cl.uint(1)], deployer);
-      expect(result).toBeNone();
-    });
   });
 
   // =====================================================================
@@ -339,274 +289,6 @@ describe("market", () => {
         "market", "buy-yt", [Cl.uint(999)], wallet2
       );
       expect(result).toBeErr(Cl.uint(400));
-    });
-  });
-
-  // =====================================================================
-  // Vault-engine PT (FT) market
-  // =====================================================================
-  describe("vault-engine PT (FT)", () => {
-    it("list-vault-pt escrows tokens and returns listing id", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      const marketAddr = `${deployer}.market`;
-
-      expect(vaultPtBalance(wallet1)).toBe(SBTC);
-
-      const { result } = simnet.callPublicFn(
-        "market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1
-      );
-      expect(result).toBeOk(Cl.uint(1));
-
-      // Tokens moved to market contract
-      expect(vaultPtBalance(wallet1)).toBe(0n);
-      expect(vaultPtBalance(marketAddr)).toBe(SBTC);
-
-      // Nonce incremented
-      const { result: nonce } = simnet.callReadOnlyFn("market", "get-ft-nonce", [], deployer);
-      expect(nonce).toEqual(Cl.uint(1));
-
-      // Listing readable
-      const { result: listing } = simnet.callReadOnlyFn(
-        "market", "get-vault-pt-listing", [Cl.uint(1)], deployer
-      );
-      expect(listing).toBeSome(
-        Cl.tuple({
-          seller: Cl.principal(wallet1),
-          amount: Cl.uint(SBTC),
-          "price-sats": Cl.uint(PRICE),
-        })
-      );
-    });
-
-    it("buy-vault-pt transfers sBTC to seller and PT to buyer", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      simnet.callPublicFn("market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1);
-
-      const sellerBefore = sbtcBalance(wallet1);
-      const buyerBefore  = sbtcBalance(wallet2);
-
-      const { result } = simnet.callPublicFn(
-        "market", "buy-vault-pt", [Cl.uint(1)], wallet2
-      );
-      expect(result).toBeOk(Cl.bool(true));
-
-      expect(sbtcBalance(wallet1)).toBe(sellerBefore + PRICE);
-      expect(sbtcBalance(wallet2)).toBe(buyerBefore  - PRICE);
-      expect(vaultPtBalance(wallet2)).toBe(SBTC);
-
-      // Listing cleared
-      const { result: listing } = simnet.callReadOnlyFn(
-        "market", "get-vault-pt-listing", [Cl.uint(1)], deployer
-      );
-      expect(listing).toBeNone();
-    });
-
-    it("cancel-vault-pt returns tokens to seller", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      simnet.callPublicFn("market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1);
-
-      const { result } = simnet.callPublicFn(
-        "market", "cancel-vault-pt", [Cl.uint(1)], wallet1
-      );
-      expect(result).toBeOk(Cl.bool(true));
-
-      expect(vaultPtBalance(wallet1)).toBe(SBTC);
-
-      const { result: listing } = simnet.callReadOnlyFn(
-        "market", "get-vault-pt-listing", [Cl.uint(1)], deployer
-      );
-      expect(listing).toBeNone();
-    });
-
-    it("list-vault-pt rejects amount zero", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      const { result } = simnet.callPublicFn(
-        "market", "list-vault-pt", [Cl.uint(0), Cl.uint(PRICE)], wallet1
-      );
-      expect(result).toBeErr(Cl.uint(404));
-    });
-
-    it("list-vault-pt rejects price zero", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      const { result } = simnet.callPublicFn(
-        "market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(0)], wallet1
-      );
-      expect(result).toBeErr(Cl.uint(402));
-    });
-
-    it("cancel-vault-pt rejects non-seller", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      simnet.callPublicFn("market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1);
-
-      const { result } = simnet.callPublicFn(
-        "market", "cancel-vault-pt", [Cl.uint(1)], wallet2
-      );
-      expect(result).toBeErr(Cl.uint(403));
-    });
-
-    it("buy-vault-pt rejects non-existent listing", () => {
-      setupVault();
-      const { result } = simnet.callPublicFn(
-        "market", "buy-vault-pt", [Cl.uint(999)], wallet2
-      );
-      expect(result).toBeErr(Cl.uint(400));
-    });
-
-    it("nonce increments independently for each vault-pt listing", () => {
-      setupVault();
-      vaultDeposit(wallet1, SBTC * 2n);
-
-      const { result: r1 } = simnet.callPublicFn(
-        "market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1
-      );
-      const { result: r2 } = simnet.callPublicFn(
-        "market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1
-      );
-      expect(r1).toBeOk(Cl.uint(1));
-      expect(r2).toBeOk(Cl.uint(2));
-    });
-  });
-
-  // =====================================================================
-  // Vault-engine YT (FT) market
-  // =====================================================================
-  describe("vault-engine YT (FT)", () => {
-    it("list-vault-yt escrows tokens and returns listing id", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      const marketAddr = `${deployer}.market`;
-
-      expect(vaultYtBalance(wallet1)).toBe(SBTC);
-
-      const { result } = simnet.callPublicFn(
-        "market", "list-vault-yt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1
-      );
-      expect(result).toBeOk(Cl.uint(1));
-
-      expect(vaultYtBalance(wallet1)).toBe(0n);
-      expect(vaultYtBalance(marketAddr)).toBe(SBTC);
-    });
-
-    it("buy-vault-yt transfers sBTC to seller and YT to buyer", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      simnet.callPublicFn("market", "list-vault-yt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1);
-
-      const sellerBefore = sbtcBalance(wallet1);
-      const buyerBefore  = sbtcBalance(wallet2);
-
-      const { result } = simnet.callPublicFn(
-        "market", "buy-vault-yt", [Cl.uint(1)], wallet2
-      );
-      expect(result).toBeOk(Cl.bool(true));
-
-      expect(sbtcBalance(wallet1)).toBe(sellerBefore + PRICE);
-      expect(sbtcBalance(wallet2)).toBe(buyerBefore  - PRICE);
-      expect(vaultYtBalance(wallet2)).toBe(SBTC);
-    });
-
-    it("cancel-vault-yt returns YT tokens to seller", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      simnet.callPublicFn("market", "list-vault-yt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1);
-
-      const { result } = simnet.callPublicFn(
-        "market", "cancel-vault-yt", [Cl.uint(1)], wallet1
-      );
-      expect(result).toBeOk(Cl.bool(true));
-      expect(vaultYtBalance(wallet1)).toBe(SBTC);
-    });
-
-    it("list-vault-yt rejects amount zero", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      const { result } = simnet.callPublicFn(
-        "market", "list-vault-yt", [Cl.uint(0), Cl.uint(PRICE)], wallet1
-      );
-      expect(result).toBeErr(Cl.uint(404));
-    });
-
-    it("list-vault-yt rejects price zero", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      const { result } = simnet.callPublicFn(
-        "market", "list-vault-yt", [Cl.uint(SBTC), Cl.uint(0)], wallet1
-      );
-      expect(result).toBeErr(Cl.uint(402));
-    });
-
-    it("cancel-vault-yt rejects non-seller", () => {
-      setupVault();
-      vaultDeposit(wallet1);
-      simnet.callPublicFn("market", "list-vault-yt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1);
-
-      const { result } = simnet.callPublicFn(
-        "market", "cancel-vault-yt", [Cl.uint(1)], wallet2
-      );
-      expect(result).toBeErr(Cl.uint(403));
-    });
-
-    it("buy-vault-yt rejects non-existent listing", () => {
-      setupVault();
-      const { result } = simnet.callPublicFn(
-        "market", "buy-vault-yt", [Cl.uint(999)], wallet2
-      );
-      expect(result).toBeErr(Cl.uint(400));
-    });
-
-    it("yield accounting remains correct after YT sold through market", () => {
-      setupVault();
-      // wallet1 deposits, then lists YT
-      vaultDeposit(wallet1);
-      simnet.callPublicFn("market", "list-vault-yt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1);
-
-      // Sync yield while YT is in escrow (market contract holds YT)
-      simnet.callPublicFn(
-        "redemption-pool", "escrow",
-        // Escrow reward directly for test — use deployer as vault-engine stand-in isn't possible here;
-        // sync via vault-engine which is already wired
-        [Cl.uint(10_000_000n), Cl.principal(deployer)],
-        deployer
-      );
-      // Use proper sync-yield through vault-engine
-      simnet.callPublicFn("sbtc-token", "mint", [Cl.uint(10_000_000n), Cl.principal(deployer)], deployer);
-      simnet.callPublicFn("vault-engine", "sync-yield", [Cl.uint(10_000_000n)], deployer);
-
-      // wallet2 buys YT — checkpoint should fire for both market contract and wallet2
-      simnet.callPublicFn("market", "buy-vault-yt", [Cl.uint(1)], wallet2);
-
-      // wallet2 can now claim yield (they own YT that accrued while in market escrow)
-      const { result } = simnet.callPublicFn("vault-engine", "claim-yield", [], wallet2);
-      // Should succeed (ok with some amount) — the YT held by market accrued yield
-      expect(result).toHaveProperty("type", ClarityType.ResponseOk);
-    });
-  });
-
-  // =====================================================================
-  // ft-nonce is shared between vault-pt and vault-yt listings
-  // =====================================================================
-  describe("shared ft-nonce", () => {
-    it("vault-pt and vault-yt listings share the same nonce counter", () => {
-      setupVault();
-      vaultDeposit(wallet1, SBTC * 2n);
-
-      const { result: r1 } = simnet.callPublicFn(
-        "market", "list-vault-pt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1
-      );
-      const { result: r2 } = simnet.callPublicFn(
-        "market", "list-vault-yt", [Cl.uint(SBTC), Cl.uint(PRICE)], wallet1
-      );
-      expect(r1).toBeOk(Cl.uint(1));
-      expect(r2).toBeOk(Cl.uint(2));
-
-      const { result: nonce } = simnet.callReadOnlyFn("market", "get-ft-nonce", [], deployer);
-      expect(nonce).toEqual(Cl.uint(2));
     });
   });
 });

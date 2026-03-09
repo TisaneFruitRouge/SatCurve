@@ -5,7 +5,6 @@
  *   - Push BTC/USD + STX/USD prices to yield-oracle.clar every 5 minutes.
  *   - Push Stacking APR to yield-oracle.clar once per PoX cycle.
  *   - Distribute sBTC stacking rewards each PoX cycle:
- *       vault-engine: sync-yield(poolRewards)
  *       bond-factory: deposit-yield(bondId, bondReward) per active bond
  *
  * Usage:
@@ -14,8 +13,7 @@
  *
  * Environment variables (see .env.example):
  *   BOT_PRIVATE_KEY, STACKS_NETWORK, STACKS_API_URL,
- *   VAULT_ENGINE_ADDRESS, BOND_FACTORY_ADDRESS,
- *   YIELD_ORACLE_ADDRESS, REDEMPTION_POOL_ADDRESS
+ *   BOND_FACTORY_ADDRESS, YIELD_ORACLE_ADDRESS
  */
 
 import { config } from "./config";
@@ -41,10 +39,9 @@ async function main() {
     const amtStr = process.argv[distArg + 1];
     const totalRewards = amtStr ? BigInt(amtStr) : 0n;
     if (totalRewards > 0n) {
-      logger.info(`CLI: distributing ${totalRewards} sats split equally between pool and bonds.`);
+      logger.info(`CLI: distributing ${totalRewards} sats across bonds.`);
       await relayer.distributeYield({
-        poolRewards:       totalRewards / 2n,
-        totalBondRewards:  totalRewards / 2n,
+        totalBondRewards: totalRewards,
       });
     }
   }

@@ -84,7 +84,7 @@
   (is-fresh (var-get btc-price-updated-block) max-price-age-blocks)
 )
 
-;; Returns the BTC price only when fresh. Call this from vault-engine.
+;; Returns the BTC price only when fresh.
 (define-read-only (get-trusted-btc-price)
   (begin
     (asserts! (is-btc-price-fresh) err-data-too-old)
@@ -106,7 +106,7 @@
   (is-fresh (var-get stx-price-updated-block) max-price-age-blocks)
 )
 
-;; Returns the STX price only when fresh. Call this from vault-engine.
+;; Returns the STX price only when fresh.
 (define-read-only (get-trusted-stx-price)
   (begin
     (asserts! (is-stx-price-fresh) err-data-too-old)

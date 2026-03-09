@@ -6,14 +6,12 @@ export const config = {
 
   // Hex-encoded Stacks private key for the relayer wallet.
   // This account must be an authorized relayer in yield-oracle.clar
-  // and the contract-owner of bond-factory.clar and vault-engine.clar.
+  // and the contract-owner of bond-factory.clar.
   botPrivateKey: process.env.BOT_PRIVATE_KEY ?? "",
 
   contracts: {
-    vaultEngine:    process.env.VAULT_ENGINE_ADDRESS    ?? "",
-    bondFactory:    process.env.BOND_FACTORY_ADDRESS    ?? "",
-    yieldOracle:    process.env.YIELD_ORACLE_ADDRESS    ?? "",
-    redemptionPool: process.env.REDEMPTION_POOL_ADDRESS ?? "",
+    bondFactory: process.env.BOND_FACTORY_ADDRESS ?? "",
+    yieldOracle: process.env.YIELD_ORACLE_ADDRESS ?? "",
   },
 
   relayer: {

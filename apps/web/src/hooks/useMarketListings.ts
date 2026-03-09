@@ -17,17 +17,8 @@ export interface NftListing {
   priceSats: bigint;
 }
 
-export interface FtListing {
-  listingId: number;
-  seller: string;
-  amount: bigint;
-  priceSats: bigint;
-}
-
 export interface MarketListings {
   nftListings: NftListing[];
-  vaultPtListings: FtListing[];
-  vaultYtListings: FtListing[];
   loading: boolean;
   error: string | null;
   refetch: () => void;
@@ -40,18 +31,8 @@ function parseListing(raw: Record<string, { value: unknown }>) {
   };
 }
 
-function parseFtListing(raw: Record<string, { value: unknown }>) {
-  return {
-    seller: String(raw["seller"]!.value),
-    amount: BigInt(String(raw["amount"]!.value)),
-    priceSats: BigInt(String(raw["price-sats"]!.value)),
-  };
-}
-
 export function useMarketListings(): MarketListings {
   const [nftListings, setNftListings] = useState<NftListing[]>([]);
-  const [vaultPtListings, setVaultPtListings] = useState<FtListing[]>([]);
-  const [vaultYtListings, setVaultYtListings] = useState<FtListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -67,35 +48,20 @@ export function useMarketListings(): MarketListings {
 
     async function load() {
       try {
-        // Fetch bond-factory bond count and market ft-nonce in parallel
-        const [bondCountRes, ftNonceRes] = await Promise.all([
-          callReadOnlyFunction({
-            contractAddress: bfCA,
-            contractName: bfCN,
-            functionName: "get-bond-count",
-            functionArgs: [],
-            network: stacksNetwork,
-            senderAddress,
-          }),
-          callReadOnlyFunction({
-            contractAddress: mktCA,
-            contractName: mktCN,
-            functionName: "get-ft-nonce",
-            functionArgs: [],
-            network: stacksNetwork,
-            senderAddress,
-          }),
-        ]);
+        const bondCountRes = await callReadOnlyFunction({
+          contractAddress: bfCA,
+          contractName: bfCN,
+          functionName: "get-bond-count",
+          functionArgs: [],
+          network: stacksNetwork,
+          senderAddress,
+        });
 
         const bondCount = Number((cvToValue(bondCountRes) as { value: string }).value);
-        const ftNonce   = Number((cvToValue(ftNonceRes) as unknown as bigint));
-
-        // Build arrays of parallel read-only calls
         const bondIds = Array.from({ length: bondCount }, (_, i) => i);
-        const ftIds   = Array.from({ length: ftNonce   }, (_, i) => i + 1);
 
-        const [ptListingResults, ytListingResults, vaultPtResults, vaultYtResults] = await Promise.all([
-          // NFT PT listings — one per bond
+        const [ptListingResults, ytListingResults] = await Promise.all([
+          // NFT PT listings -- one per bond
           Promise.all(bondIds.map((id) =>
             callReadOnlyFunction({
               contractAddress: mktCA, contractName: mktCN,
@@ -108,22 +74,6 @@ export function useMarketListings(): MarketListings {
             callReadOnlyFunction({
               contractAddress: mktCA, contractName: mktCN,
               functionName: "get-yt-listing", functionArgs: [uintCV(id)],
-              network: stacksNetwork, senderAddress,
-            })
-          )),
-          // Vault PT FT listings
-          Promise.all(ftIds.map((id) =>
-            callReadOnlyFunction({
-              contractAddress: mktCA, contractName: mktCN,
-              functionName: "get-vault-pt-listing", functionArgs: [uintCV(id)],
-              network: stacksNetwork, senderAddress,
-            })
-          )),
-          // Vault YT FT listings
-          Promise.all(ftIds.map((id) =>
-            callReadOnlyFunction({
-              contractAddress: mktCA, contractName: mktCN,
-              functionName: "get-vault-yt-listing", functionArgs: [uintCV(id)],
               network: stacksNetwork, senderAddress,
             })
           )),
@@ -143,24 +93,7 @@ export function useMarketListings(): MarketListings {
           }
         });
 
-        const vPt: FtListing[] = [];
-        const vYt: FtListing[] = [];
-        ftIds.forEach((listingId, i) => {
-          const ptRaw = cvToValue(vaultPtResults[i]!) as { value: Record<string, { value: unknown }> } | null;
-          if (ptRaw?.value) {
-            const { seller, amount, priceSats } = parseFtListing(ptRaw.value);
-            vPt.push({ listingId, seller, amount, priceSats });
-          }
-          const ytRaw = cvToValue(vaultYtResults[i]!) as { value: Record<string, { value: unknown }> } | null;
-          if (ytRaw?.value) {
-            const { seller, amount, priceSats } = parseFtListing(ytRaw.value);
-            vYt.push({ listingId, seller, amount, priceSats });
-          }
-        });
-
         setNftListings(nft);
-        setVaultPtListings(vPt);
-        setVaultYtListings(vYt);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load listings");
@@ -174,5 +107,5 @@ export function useMarketListings(): MarketListings {
     return () => clearInterval(interval);
   }, [tick]);
 
-  return { nftListings, vaultPtListings, vaultYtListings, loading, error, refetch };
+  return { nftListings, loading, error, refetch };
 }

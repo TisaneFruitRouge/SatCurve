@@ -13,11 +13,6 @@ path = "contracts/sbtc-token.clar"
 clarity_version = 3
 epoch = "3.0"
 
-[contracts.vault-engine]
-path = "contracts/vault-engine.clar"
-clarity_version = 2
-epoch = "3.0"
-
 [contracts.bond-factory]
 path = "contracts/bond-factory.clar"
 clarity_version = 2
@@ -25,11 +20,6 @@ epoch = "3.0"
 
 [contracts.yield-oracle]
 path = "contracts/yield-oracle.clar"
-clarity_version = 2
-epoch = "3.0"
-
-[contracts.redemption-pool]
-path = "contracts/redemption-pool.clar"
 clarity_version = 2
 epoch = "3.0"
 

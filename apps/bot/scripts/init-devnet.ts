@@ -9,11 +9,9 @@
  *   MATURITY_BLOCKS=10000 pnpm --filter @satcurve/bot exec tsx scripts/init-devnet.ts
  *
  * What it does:
- *   1. sbtc-token::mint                   — funds each test wallet with 10 sBTC
- *   2. yield-oracle::set-btc-price        — seeds BTC/USD price ($95,000)
- *   3. yield-oracle::set-stacking-apr     — seeds stacking APR (8.00%)
- *   4. redemption-pool::set-vault-engine  — authorizes vault-engine to escrow/release sBTC
- *   5. vault-engine::initialize           — sets the pool maturity block
+ *   1. sbtc-token::mint               — funds each test wallet with 10 sBTC
+ *   2. yield-oracle::set-btc-price    — seeds BTC/USD price ($95,000)
+ *   3. yield-oracle::set-stacking-apr — seeds stacking APR (8.00%)
  */
 
 import { readFileSync } from "fs";
@@ -38,10 +36,6 @@ import { mnemonicToSeedSync } from "@scure/bip39";
 
 const DEPLOYER = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM";
 const API_URL = process.env.STACKS_API_URL ?? "http://localhost:3999";
-
-// Default maturity: 5 000 Stacks blocks from now (~2-3 h on devnet, instant with mineEmptyBlocks).
-// Override with MATURITY_BLOCKS env var.
-const MATURITY_BLOCKS = parseInt(process.env.MATURITY_BLOCKS ?? "5000", 10);
 
 // sBTC amount to mint per wallet (1 000 000 000 sats = 10 sBTC)
 const SBTC_AMOUNT = 1_000_000_000;
@@ -197,8 +191,6 @@ async function main() {
   await waitForContracts([
     "sbtc-token",
     "bond-factory",
-    "redemption-pool",
-    "vault-engine",
     "market",
     "yield-oracle",
   ]);
@@ -264,29 +256,7 @@ async function main() {
     nonce++,
   );
 
-  // 4. Authorize vault-engine to call escrow/release on redemption-pool
-  await call(
-    privateKey,
-    network,
-    "redemption-pool",
-    "set-vault-engine",
-    [principalCV(`${DEPLOYER}.vault-engine`)],
-    "redemption-pool::set-vault-engine",
-    nonce++,
-  );
-
-  // 5. Initialize vault-engine with the maturity block
-  await call(
-    privateKey,
-    network,
-    "vault-engine",
-    "initialize",
-    [uintCV(MATURITY_BLOCKS)],
-    `vault-engine::initialize (maturity = block ${MATURITY_BLOCKS})`,
-    nonce++,
-  );
-
-  console.log("\nDone. Vault is live and accepting deposits.");
+  console.log("\nDone.");
   console.log(`Each wallet has ${SBTC_AMOUNT / 1e8} sBTC available.`);
 }
 

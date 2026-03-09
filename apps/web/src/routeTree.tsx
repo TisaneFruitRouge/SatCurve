@@ -7,7 +7,6 @@ import { RootLayout } from "./components/RootLayout";
 import { HomePage } from "./routes/HomePage";
 import { BondsPage } from "./routes/BondsPage";
 import { BondDetailPage } from "./routes/BondDetailPage";
-import { VaultPage } from "./routes/VaultPage";
 import { MarketPage } from "./routes/MarketPage";
 
 const rootRoute = createRootRoute({
@@ -36,13 +35,6 @@ const bondDetailRoute = createRoute({
   component: BondDetailPage,
 });
 
-// Legacy redirect: /vault → /bonds
-const vaultRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/vault",
-  component: VaultPage,
-});
-
 const marketRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/market",
@@ -53,6 +45,5 @@ export const routeTree = rootRoute.addChildren([
   indexRoute,
   bondsRoute,
   bondDetailRoute,
-  vaultRoute,
   marketRoute,
 ]);
