@@ -48,9 +48,19 @@ export function BondRow({ bond, currentBlock }: BondRowProps) {
                   PT
                 </span>
               )}
+              {bond.ptListed && !bond.holdsPt && (
+                <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-brand/5 text-brand/60 border border-brand/20">
+                  PT Listed
+                </span>
+              )}
               {bond.holdsYt && (
                 <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/30">
                   YT
+                </span>
+              )}
+              {bond.ytListed && !bond.holdsYt && (
+                <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-success/5 text-success/60 border border-success/20">
+                  YT Listed
                 </span>
               )}
               <Badge variant="outline" className={className}>

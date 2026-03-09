@@ -91,7 +91,7 @@ export function useMarketListings(): MarketListings {
         const ftNonce   = Number((cvToValue(ftNonceRes) as unknown as bigint));
 
         // Build arrays of parallel read-only calls
-        const bondIds = Array.from({ length: bondCount }, (_, i) => i + 1);
+        const bondIds = Array.from({ length: bondCount }, (_, i) => i);
         const ftIds   = Array.from({ length: ftNonce   }, (_, i) => i + 1);
 
         const [ptListingResults, ytListingResults, vaultPtResults, vaultYtResults] = await Promise.all([

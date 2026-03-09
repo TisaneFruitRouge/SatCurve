@@ -61,6 +61,10 @@ export function useBonds(address: string | null): UseBondsResult {
     );
     if (!contractAddress || !contractName) return;
 
+    const { contractAddress: mktCA, contractName: mktCN } = parseContractId(
+      CONTRACT_ADDRESSES.market,
+    );
+
     const apiUrl = stacksNetwork.coreApiUrl;
     const ptAsset = `${contractAddress}.${contractName}::principal-token`;
     const ytAsset = `${contractAddress}.${contractName}::yield-token`;
@@ -69,16 +73,75 @@ export function useBonds(address: string | null): UseBondsResult {
 
     async function load() {
       try {
-        // Fetch PT and YT holdings in parallel — user may hold either or both
-        const [ptIds, ytIds] = await Promise.all([
+        // Fetch PT and YT holdings + bond count in parallel
+        const [ptIds, ytIds, bondCountRes] = await Promise.all([
           fetchNftBondIds(apiUrl, address!, ptAsset),
           fetchNftBondIds(apiUrl, address!, ytAsset),
+          callReadOnlyFunction({
+            contractAddress,
+            contractName,
+            functionName: "get-bond-count",
+            functionArgs: [],
+            network: stacksNetwork,
+            senderAddress: address!,
+          }),
         ]);
 
-        // Union of all bond IDs the user has any stake in
-        const allIds = Array.from(new Set([...ptIds, ...ytIds])).sort(
-          (a, b) => a - b,
+        // Check market listings — bonds whose NFTs are escrowed (both PT and YT listed)
+        // would otherwise disappear from the user's portfolio entirely.
+        const bondCount = Number(
+          (cvToValue(bondCountRes) as { value: string }).value,
         );
+        const bondIdsRange = Array.from({ length: bondCount }, (_, i) => i);
+
+        const [ptListingResults, ytListingResults] = await Promise.all([
+          Promise.all(
+            bondIdsRange.map((id) =>
+              callReadOnlyFunction({
+                contractAddress: mktCA,
+                contractName: mktCN,
+                functionName: "get-pt-listing",
+                functionArgs: [uintCV(id)],
+                network: stacksNetwork,
+                senderAddress: address!,
+              }),
+            ),
+          ),
+          Promise.all(
+            bondIdsRange.map((id) =>
+              callReadOnlyFunction({
+                contractAddress: mktCA,
+                contractName: mktCN,
+                functionName: "get-yt-listing",
+                functionArgs: [uintCV(id)],
+                network: stacksNetwork,
+                senderAddress: address!,
+              }),
+            ),
+          ),
+        ]);
+
+        const ptListedIds = new Set<number>();
+        const ytListedIds = new Set<number>();
+        bondIdsRange.forEach((id, i) => {
+          const ptRaw = cvToValue(ptListingResults[i]!) as {
+            value: Record<string, { value: unknown }>;
+          } | null;
+          if (ptRaw?.value && String(ptRaw.value["seller"]!.value) === address) {
+            ptListedIds.add(id);
+          }
+          const ytRaw = cvToValue(ytListingResults[i]!) as {
+            value: Record<string, { value: unknown }>;
+          } | null;
+          if (ytRaw?.value && String(ytRaw.value["seller"]!.value) === address) {
+            ytListedIds.add(id);
+          }
+        });
+
+        // Union: directly held + listed on market (escrowed)
+        const allIds = Array.from(
+          new Set([...ptIds, ...ytIds, ...ptListedIds, ...ytListedIds]),
+        ).sort((a, b) => a - b);
 
         if (allIds.length === 0) {
           setBonds([]);
@@ -120,6 +183,8 @@ export function useBonds(address: string | null): UseBondsResult {
             yieldWithdrawn: BigInt(String(f["yield-withdrawn"]!.value)),
             holdsPt: ptIds.has(id),
             holdsYt: ytIds.has(id),
+            ptListed: ptListedIds.has(id),
+            ytListed: ytListedIds.has(id),
           };
         });
 

@@ -21,6 +21,8 @@ export interface Bond {
   yieldWithdrawn: bigint;      // yield already collected by YT holder (satoshis)
   holdsPt: boolean;            // connected user currently holds the PT NFT
   holdsYt: boolean;            // connected user currently holds the YT NFT
+  ptListed: boolean;           // user has this bond's PT listed on the market (escrowed)
+  ytListed: boolean;           // user has this bond's YT listed on the market (escrowed)
 }
 
 /**

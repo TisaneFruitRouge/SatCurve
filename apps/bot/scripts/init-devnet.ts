@@ -20,6 +20,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import {
   makeContractCall,
+  makeSTXTokenTransfer,
   broadcastTransaction,
   uintCV,
   principalCV,
@@ -54,7 +55,16 @@ const TEST_WALLETS = [
     label: "liquidation-bot",
     address: "ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC",
   },
+  {
+    label: "vincent",
+    address: "ST3DQZN7X9FRR0N2DZZCRAVRSCY7BA2D58BXK4C10",
+  },
 ];
+
+// Wallets not defined in Devnet.toml need STX sent to them explicitly.
+// 500 STX per wallet — enough for transaction fees.
+const STX_AMOUNT_USTX = 500_000_000n; // 500 STX in microSTX
+const EXTRA_STX_WALLETS = ["ST3DQZN7X9FRR0N2DZZCRAVRSCY7BA2D58BXK4C10"];
 
 // ---------------------------------------------------------------------------
 // Key derivation — reads the deployer mnemonic from settings/Devnet.toml
@@ -82,6 +92,59 @@ function getDeployerPrivateKey(): string {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Poll until all required contracts are deployed on-chain (max ~60 s). */
+async function waitForContracts(
+  contracts: string[],
+  timeoutMs = 120_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  console.log(`\nWaiting for contracts to be deployed on devnet…`);
+  while (Date.now() < deadline) {
+    const results = await Promise.all(
+      contracts.map(async (name) => {
+        const res = await fetch(
+          `${API_URL}/v2/contracts/interface/${DEPLOYER}/${name}`,
+        );
+        return res.ok;
+      }),
+    );
+    if (results.every(Boolean)) {
+      console.log(`All contracts ready.\n`);
+      return;
+    }
+    const missing = contracts.filter((_, i) => !results[i]);
+    process.stdout.write(`  Still waiting for: ${missing.join(", ")} …\r`);
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
+  throw new Error("Timed out waiting for contracts to be deployed");
+}
+
+async function sendStx(
+  privateKey: string,
+  network: InstanceType<typeof StacksDevnet>,
+  recipient: string,
+  amountUstx: bigint,
+  label: string,
+  nonce: number,
+) {
+  const tx = await makeSTXTokenTransfer({
+    network,
+    recipient,
+    amount: amountUstx,
+    senderKey: privateKey,
+    anchorMode: AnchorMode.Any,
+    fee: 10_000,
+    nonce,
+  });
+  const result = await broadcastTransaction(tx, network);
+  if ("error" in result && result.error) {
+    throw new Error(
+      `${label} failed: ${result.error} — ${(result as { reason?: string }).reason ?? ""}`,
+    );
+  }
+  console.log(`✓ ${label} → ${(result as { txid: string }).txid}`);
+}
 
 async function getNonce(): Promise<number> {
   const res = await fetch(`${API_URL}/v2/accounts/${DEPLOYER}?proof=0`);
@@ -130,6 +193,16 @@ async function call(
 async function main() {
   console.log(`Connecting to devnet at ${API_URL} …`);
 
+  // Wait until all contracts are deployed (anchor-block-only: devnet needs a few blocks)
+  await waitForContracts([
+    "sbtc-token",
+    "bond-factory",
+    "redemption-pool",
+    "vault-engine",
+    "market",
+    "yield-oracle",
+  ]);
+
   const privateKey = getDeployerPrivateKey();
   const network = new StacksDevnet({ url: API_URL });
 
@@ -151,6 +224,21 @@ async function main() {
       `sbtc-token::mint → ${wallet.label} (${wallet.address})`,
       nonce++,
     );
+  }
+
+  // 1b. Send STX to wallets not defined in Devnet.toml (they have no STX by default)
+  if (EXTRA_STX_WALLETS.length > 0) {
+    console.log(`\nSending STX to ${EXTRA_STX_WALLETS.length} extra wallet(s)…`);
+    for (const addr of EXTRA_STX_WALLETS) {
+      await sendStx(
+        privateKey,
+        network,
+        addr,
+        STX_AMOUNT_USTX,
+        `STX transfer → ${addr}`,
+        nonce++,
+      );
+    }
   }
 
   // 2. Seed the yield oracle with realistic devnet values

@@ -36,6 +36,13 @@ plan:
       anchor-block-only: true
       clarity-version: 2
     - transaction-type: contract-publish
+      contract-name: market
+      expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      cost: 84860
+      path: contracts/market.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
       contract-name: yield-oracle
       expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       cost: 60010

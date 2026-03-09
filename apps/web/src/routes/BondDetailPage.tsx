@@ -168,6 +168,8 @@ export function BondDetailPage() {
           yieldWithdrawn: BigInt(String(raw["yield-withdrawn"]!.value)),
           holdsPt,
           holdsYt,
+          ptListed: false,
+          ytListed: false,
         });
 
         setIsPtOwner(holdsPt);
@@ -327,10 +329,16 @@ export function BondDetailPage() {
                     className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
                       isPtOwner
                         ? "border-brand/40 text-brand bg-brand/10"
-                        : "border-border text-text-faint"
+                        : ptListing && address === ptListing.seller
+                          ? "border-yellow-500/40 text-yellow-500 bg-yellow-500/10"
+                          : "border-border text-text-faint"
                     }`}
                   >
-                    {isPtOwner ? "You hold" : "Sold"}
+                    {isPtOwner
+                      ? "You hold"
+                      : ptListing && address === ptListing.seller
+                        ? "For Sale"
+                        : "Sold"}
                   </span>
                 </div>
               </CardHeader>
@@ -495,10 +503,16 @@ export function BondDetailPage() {
                     className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
                       isYtOwner
                         ? "border-success/40 text-success bg-success/10"
-                        : "border-border text-text-faint"
+                        : ytListing && address === ytListing.seller
+                          ? "border-yellow-500/40 text-yellow-500 bg-yellow-500/10"
+                          : "border-border text-text-faint"
                     }`}
                   >
-                    {isYtOwner ? "You hold" : "Sold"}
+                    {isYtOwner
+                      ? "You hold"
+                      : ytListing && address === ytListing.seller
+                        ? "For Sale"
+                        : "Sold"}
                   </span>
                 </div>
               </CardHeader>
