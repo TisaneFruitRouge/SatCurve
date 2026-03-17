@@ -27,7 +27,7 @@ export async function fetchMarketPrices(): Promise<MarketPrices> {
   const packages = await requestDataPackages({
     dataServiceId: DATA_SERVICE_ID,
     uniqueSignersCount: 1,
-    dataFeedIds: ["BTC", "STX"],
+    dataPackagesIds: ["BTC", "STX"],
   });
 
   const btcRaw = extractValue(packages["BTC"], "BTC");
