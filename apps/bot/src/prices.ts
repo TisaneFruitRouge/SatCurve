@@ -10,9 +10,9 @@
  */
 
 import { requestDataPackages } from "@redstone-finance/sdk";
+import { config } from "./config";
 import { logger } from "./logger";
 
-const DATA_SERVICE_ID = "redstone-rapid-demo";
 const PRICE_PRECISION = 1_000_000; // 6 decimals
 
 export interface MarketPrices {
@@ -25,8 +25,8 @@ export interface MarketPrices {
 /** Pull the latest BTC and STX prices from RedStone. */
 export async function fetchMarketPrices(): Promise<MarketPrices> {
   const packages = await requestDataPackages({
-    dataServiceId: DATA_SERVICE_ID,
-    uniqueSignersCount: 1,
+    dataServiceId: config.redstone.dataServiceId,
+    uniqueSignersCount: config.redstone.uniqueSignersCount,
     dataPackagesIds: ["BTC", "STX"],
   });
 

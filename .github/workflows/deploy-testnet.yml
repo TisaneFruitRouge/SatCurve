@@ -99,7 +99,10 @@ jobs:
         run: pnpm --filter @satcurve/web build
         env:
           VITE_STACKS_NETWORK: testnet
-          VITE_CONTRACT_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}
+          VITE_BOND_FACTORY_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.bond-factory
+          VITE_YIELD_ORACLE_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.yield-oracle
+          VITE_MARKET_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.market
+          VITE_SBTC_TOKEN_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.sbtc-token
 
       - name: Deploy to Vercel
         run: pnpm dlx vercel --cwd apps/web --token ${{ secrets.VERCEL_TOKEN }} --prod --yes
