@@ -1,10 +1,9 @@
 name: Deploy to Testnet
 
-# Trigger: push a tag like v0.1.0-testnet
 on:
   push:
-    tags:
-      - 'v*-testnet'
+    branches:
+      - master
 
 env:
   NODE_VERSION: '20'
