@@ -1,0 +1,138 @@
+name: Deploy to Testnet
+
+# Trigger: push a tag like v0.1.0-testnet
+on:
+  push:
+    tags:
+      - 'v*-testnet'
+
+env:
+  NODE_VERSION: '20'
+  CLARINET_VERSION: '3.14.0'
+
+jobs:
+  # ─── Job 1: detect whether contracts changed since last testnet tag ───────
+  check-contracts:
+    name: Check contract changes
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for tag comparison
+
+      - name: Detect changes since last testnet tag
+        id: diff
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v.*-testnet$' | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous testnet tag — contracts will be deployed"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            DIFF=$(git diff "$PREV_TAG" HEAD -- contracts/ Clarinet.toml)
+            if [ -n "$DIFF" ]; then
+              echo "Contract changes detected since $PREV_TAG"
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "No contract changes since $PREV_TAG — skipping contract deploy"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  # ─── Job 2: deploy Clarity contracts to Stacks Testnet ───────────────────
+  deploy-contracts:
+    name: Deploy contracts
+    needs: check-contracts
+    if: needs.check-contracts.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clarinet ${{ env.CLARINET_VERSION }}
+        run: |
+          curl -fsSL \
+            "https://github.com/hirosystems/clarinet/releases/download/v${CLARINET_VERSION}/clarinet-linux-x64-glibc.tar.gz" \
+            | tar -xz
+          chmod +x ./clarinet
+          sudo mv ./clarinet /usr/local/bin/clarinet
+          clarinet --version
+
+      - name: Inject deployer mnemonic into Testnet.toml
+        run: |
+          sed -i \
+            's|mnemonic = ".*"|mnemonic = "${{ secrets.TESTNET_DEPLOYER_MNEMONIC }}"|' \
+            settings/Testnet.toml
+
+      - name: Deploy contracts
+        run: |
+          clarinet deployments apply \
+            --testnet \
+            --deployment-plan-path deployments/default.testnet-plan.yaml \
+            --no-dashboard
+
+  # ─── Job 3: build & deploy web app to Vercel ─────────────────────────────
+  deploy-web:
+    name: Deploy web to Vercel
+    needs: deploy-contracts
+    # Run even if deploy-contracts was skipped (no contract changes)
+    if: |
+      always() &&
+      (needs.deploy-contracts.result == 'success' ||
+       needs.deploy-contracts.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter @satcurve/web build
+        env:
+          VITE_STACKS_NETWORK: testnet
+          VITE_CONTRACT_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}
+
+      - name: Deploy to Vercel
+        run: pnpm dlx vercel --cwd apps/web --token ${{ secrets.VERCEL_TOKEN }} --prod --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  # ─── Job 4: deploy relayer bot to Railway ────────────────────────────────
+  deploy-bot:
+    name: Deploy bot to Railway
+    needs: deploy-contracts
+    if: |
+      always() &&
+      (needs.deploy-contracts.result == 'success' ||
+       needs.deploy-contracts.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy bot
+        working-directory: apps/bot
+        run: railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

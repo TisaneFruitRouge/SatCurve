@@ -1,0 +1,41 @@
+id: 0
+name: Testnet deployment
+# Deploys the mock sbtc-token under the deployer's address so that the
+# relative `.sbtc-token` calls in bond-factory and market resolve to
+# STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W.sbtc-token on testnet.
+# Integrating with the real sBTC contract is a mainnet concern.
+network: testnet
+stacks-node: https://api.testnet.hiro.so
+plan:
+  batches:
+  - id: 0
+    transactions:
+    - transaction-type: contract-publish
+      contract-name: sbtc-token
+      expected-sender: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
+      cost: 45990
+      path: contracts/sbtc-token.clar
+      anchor-block-only: true
+      clarity-version: 3
+    - transaction-type: contract-publish
+      contract-name: bond-factory
+      expected-sender: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
+      cost: 97210
+      path: contracts/bond-factory.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: yield-oracle
+      expected-sender: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
+      cost: 59430
+      path: contracts/yield-oracle.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: market
+      expected-sender: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
+      cost: 40270
+      path: contracts/market.clar
+      anchor-block-only: true
+      clarity-version: 2
+    epoch: '3.0'
