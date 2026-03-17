@@ -213,8 +213,8 @@ export function HomePage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {previewListings.map((item) => (
-              <MarketPreviewRow key={item.key} {...item} />
+            {previewListings.map(({ key, ...item }) => (
+              <MarketPreviewRow key={key} {...item} />
             ))}
           </div>
         )}

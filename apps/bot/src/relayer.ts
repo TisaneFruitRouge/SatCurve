@@ -20,7 +20,7 @@
 import { uintCV } from "@stacks/transactions";
 import { config } from "./config";
 import { fetchMarketPrices } from "./prices";
-import { contractCall, readOnly, getBotAddress } from "./stacks";
+import { contractCall, readOnly, readUint, getBotAddress } from "./stacks";
 import { logger } from "./logger";
 
 // -----------------------------------------------------------------------
