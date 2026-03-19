@@ -6,6 +6,7 @@ name: Testnet deployment
 # Integrating with the real sBTC contract is a mainnet concern.
 network: testnet
 stacks-node: https://api.testnet.hiro.so
+bitcoin-node: bitcoind.testnet.stacks.co:18332
 plan:
   batches:
   - id: 0
@@ -25,17 +26,17 @@ plan:
       anchor-block-only: true
       clarity-version: 2
     - transaction-type: contract-publish
-      contract-name: yield-oracle
-      expected-sender: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
-      cost: 59430
-      path: contracts/yield-oracle.clar
-      anchor-block-only: true
-      clarity-version: 2
-    - transaction-type: contract-publish
       contract-name: market
       expected-sender: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
       cost: 40270
       path: contracts/market.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: yield-oracle
+      expected-sender: STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W
+      cost: 59430
+      path: contracts/yield-oracle.clar
       anchor-block-only: true
       clarity-version: 2
     epoch: '3.0'
