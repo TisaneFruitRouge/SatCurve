@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
+    inputs:
+      force_contracts:
+        description: 'Force contract redeployment even if no changes'
+        type: boolean
+        default: false
 
 env:
   NODE_VERSION: '20'
@@ -15,7 +21,7 @@ jobs:
     name: Check contract changes
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.filter.outputs.contracts }}
+      changed: ${{ steps.result.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +33,16 @@ jobs:
               - 'contracts/**'
               - 'Clarinet.toml'
               - 'deployments/**'
+
+      - name: Resolve changed output
+        id: result
+        run: |
+          if [ "${{ inputs.force_contracts }}" = "true" ]; then
+            echo "Force deploy requested"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=${{ steps.filter.outputs.contracts }}" >> $GITHUB_OUTPUT
+          fi
 
   # ─── Job 2: deploy Clarity contracts to Stacks Testnet ───────────────────
   deploy-contracts:
@@ -59,11 +75,10 @@ jobs:
             --deployment-plan-path deployments/default.testnet-plan.yaml \
             --no-dashboard
 
-  # ─── Job 3: build & deploy web app to Vercel ─────────────────────────────
+  # ─── Job 3: deploy web app to Railway ────────────────────────────────────
   deploy-web:
-    name: Deploy web to Vercel
+    name: Deploy web to Railway
     needs: deploy-contracts
-    # Run even if deploy-contracts was skipped (no contract changes)
     if: |
       always() &&
       (needs.deploy-contracts.result == 'success' ||
@@ -72,32 +87,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm --filter @satcurve/web build
+      - name: Deploy web
+        run: railway up --service "@satcurve/web" --detach
         env:
-          VITE_STACKS_NETWORK: testnet
-          VITE_BOND_FACTORY_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.bond-factory
-          VITE_YIELD_ORACLE_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.yield-oracle
-          VITE_MARKET_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.market
-          VITE_SBTC_TOKEN_ADDRESS: ${{ secrets.TESTNET_DEPLOYER_ADDRESS }}.sbtc-token
-
-      - name: Deploy to Vercel
-        run: pnpm dlx vercel --cwd apps/web --token ${{ secrets.VERCEL_TOKEN }} --prod --yes
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
   # ─── Job 4: deploy relayer bot to Railway ────────────────────────────────
   deploy-bot:
@@ -111,23 +107,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
       - name: Deploy bot
-        working-directory: apps/bot
-        run: railway up --detach
+        run: railway up --service "@satcurve/bot" --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
