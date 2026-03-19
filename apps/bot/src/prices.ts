@@ -46,18 +46,18 @@ export async function fetchMarketPrices(): Promise<MarketPrices> {
   return { btcUsd, stxUsd };
 }
 
-/** Fetch STX/USD from CoinGecko's free public API. */
+/** Fetch STX/USD from Binance's public API (no auth required). */
 function fetchStxUsd(): Promise<number> {
   return new Promise((resolve, reject) => {
-    const url = "https://api.coingecko.com/api/v3/simple/price?ids=blockstack&vs_currencies=usd";
+    const url = "https://api.binance.com/api/v3/ticker/price?symbol=STXUSDT";
     https.get(url, { headers: { "Accept": "application/json" } }, (res) => {
       let data = "";
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => {
         try {
-          const json = JSON.parse(data) as { blockstack?: { usd?: number } };
-          const price = json.blockstack?.usd;
-          if (!price) throw new Error("STX price missing from CoinGecko response");
+          const json = JSON.parse(data) as { price?: string };
+          const price = json.price ? parseFloat(json.price) : null;
+          if (!price) throw new Error("STX price missing from Binance response");
           resolve(price);
         } catch (e) {
           reject(e);
