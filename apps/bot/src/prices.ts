@@ -10,6 +10,7 @@
  */
 
 import { requestDataPackages } from "@redstone-finance/sdk";
+import https from "https";
 import { config } from "./config";
 import { logger } from "./logger";
 
@@ -22,33 +23,48 @@ export interface MarketPrices {
   stxUsd: bigint;
 }
 
-/** Pull the latest BTC and STX prices from RedStone.
+/** Pull the latest BTC and STX prices.
  *
- * BTC is fetched from the configured data service (redstone-primary-prod).
- * STX is fetched from redstone-rapid-demo which carries the STX feed.
+ * BTC is fetched from RedStone (redstone-primary-prod).
+ * STX is fetched from CoinGecko's free API (no key required).
  */
 export async function fetchMarketPrices(): Promise<MarketPrices> {
-  const [btcPackages, stxPackages] = await Promise.all([
+  const [btcPackages, stxRaw] = await Promise.all([
     requestDataPackages({
       dataServiceId: config.redstone.dataServiceId,
       uniqueSignersCount: config.redstone.uniqueSignersCount,
       dataPackagesIds: ["BTC"],
     }),
-    requestDataPackages({
-      dataServiceId: "redstone-rapid-demo",
-      uniqueSignersCount: 1,
-      dataPackagesIds: ["STX"],
-    }),
+    fetchStxUsd(),
   ]);
 
   const btcRaw = extractValue(btcPackages["BTC"], "BTC");
-  const stxRaw = extractValue(stxPackages["STX"], "STX");
-
   const btcUsd = BigInt(Math.round(btcRaw * PRICE_PRECISION));
   const stxUsd = BigInt(Math.round(stxRaw * PRICE_PRECISION));
 
   logger.info(`Prices fetched — BTC: $${btcRaw.toFixed(2)}, STX: $${stxRaw.toFixed(4)}`);
   return { btcUsd, stxUsd };
+}
+
+/** Fetch STX/USD from CoinGecko's free public API. */
+function fetchStxUsd(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = "https://api.coingecko.com/api/v3/simple/price?ids=blockstack&vs_currencies=usd";
+    https.get(url, { headers: { "Accept": "application/json" } }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(data) as { blockstack?: { usd?: number } };
+          const price = json.blockstack?.usd;
+          if (!price) throw new Error("STX price missing from CoinGecko response");
+          resolve(price);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }).on("error", reject);
+  });
 }
 
 /**
