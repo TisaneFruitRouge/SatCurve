@@ -29,9 +29,6 @@ importers:
 
   apps/bot:
     dependencies:
-      '@redstone-finance/sdk':
-        specifier: ^0.6.0
-        version: 0.6.2
       '@satcurve/types':
         specifier: workspace:*
         version: link:../../packages/types

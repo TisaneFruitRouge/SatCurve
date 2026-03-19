@@ -14,8 +14,7 @@
     "@stacks/blockchain-api-client": "^7.7.0",
     "@stacks/network": "^6.13.0",
     "@stacks/transactions": "^6.17.0",
-    "@redstone-finance/sdk": "^0.6.0",
-    "dotenv": "^16.4.0",
+"dotenv": "^16.4.0",
     "winston": "^3.13.0"
   },
   "devDependencies": {
