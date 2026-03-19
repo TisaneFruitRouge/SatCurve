@@ -69,11 +69,7 @@ jobs:
             settings/Testnet.toml
 
       - name: Deploy contracts
-        run: |
-          clarinet deployments apply \
-            --testnet \
-            --deployment-plan-path deployments/default.testnet-plan.yaml \
-            --no-dashboard
+        run: clarinet deployments apply --testnet --no-dashboard
 
   # ─── Job 3: deploy web app to Railway ────────────────────────────────────
   deploy-web:
