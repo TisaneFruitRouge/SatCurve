@@ -1,9 +1,5 @@
 id: 0
 name: Testnet deployment
-# Deploys the mock sbtc-token under the deployer's address so that the
-# relative `.sbtc-token` calls in bond-factory and market resolve to
-# STH847V24S32N9PZ0G0RED391PEK2CEVFFHNFX2W.sbtc-token on testnet.
-# Integrating with the real sBTC contract is a mainnet concern.
 network: testnet
 stacks-node: https://api.testnet.hiro.so
 bitcoin-node: bitcoind.testnet.stacks.co:18332

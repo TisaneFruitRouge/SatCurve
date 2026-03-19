@@ -69,7 +69,7 @@ jobs:
             settings/Testnet.toml
 
       - name: Deploy contracts
-        run: echo "y" | clarinet deployments apply --testnet --no-dashboard
+        run: printf 'n\ny\n' | clarinet deployments apply --testnet --no-dashboard
 
   # ─── Job 3: deploy web app to Railway ────────────────────────────────────
   deploy-web:
