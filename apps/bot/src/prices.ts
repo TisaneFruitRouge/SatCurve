@@ -22,16 +22,27 @@ export interface MarketPrices {
   stxUsd: bigint;
 }
 
-/** Pull the latest BTC and STX prices from RedStone. */
+/** Pull the latest BTC and STX prices from RedStone.
+ *
+ * BTC is fetched from the configured data service (redstone-primary-prod).
+ * STX is fetched from redstone-rapid-demo which carries the STX feed.
+ */
 export async function fetchMarketPrices(): Promise<MarketPrices> {
-  const packages = await requestDataPackages({
-    dataServiceId: config.redstone.dataServiceId,
-    uniqueSignersCount: config.redstone.uniqueSignersCount,
-    dataPackagesIds: ["BTC", "STX"],
-  });
+  const [btcPackages, stxPackages] = await Promise.all([
+    requestDataPackages({
+      dataServiceId: config.redstone.dataServiceId,
+      uniqueSignersCount: config.redstone.uniqueSignersCount,
+      dataPackagesIds: ["BTC"],
+    }),
+    requestDataPackages({
+      dataServiceId: "redstone-rapid-demo",
+      uniqueSignersCount: 1,
+      dataPackagesIds: ["STX"],
+    }),
+  ]);
 
-  const btcRaw = extractValue(packages["BTC"], "BTC");
-  const stxRaw = extractValue(packages["STX"], "STX");
+  const btcRaw = extractValue(btcPackages["BTC"], "BTC");
+  const stxRaw = extractValue(stxPackages["STX"], "STX");
 
   const btcUsd = BigInt(Math.round(btcRaw * PRICE_PRECISION));
   const stxUsd = BigInt(Math.round(stxRaw * PRICE_PRECISION));
