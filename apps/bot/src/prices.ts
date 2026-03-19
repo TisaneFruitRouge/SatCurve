@@ -46,18 +46,23 @@ export async function fetchMarketPrices(): Promise<MarketPrices> {
   return { btcUsd, stxUsd };
 }
 
-/** Fetch STX/USD from Binance's public API (no auth required). */
+/** Fetch STX/USD from Kraken's public API (no auth required). */
 function fetchStxUsd(): Promise<number> {
   return new Promise((resolve, reject) => {
-    const url = "https://api.binance.com/api/v3/ticker/price?symbol=STXUSDT";
+    const url = "https://api.kraken.com/0/public/Ticker?pair=STXUSD";
     https.get(url, { headers: { "Accept": "application/json" } }, (res) => {
       let data = "";
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => {
         try {
-          const json = JSON.parse(data) as { price?: string };
-          const price = json.price ? parseFloat(json.price) : null;
-          if (!price) throw new Error("STX price missing from Binance response");
+          const json = JSON.parse(data) as {
+            error: string[];
+            result?: Record<string, { c: [string, string] }>;
+          };
+          if (json.error.length) throw new Error(`Kraken error: ${json.error.join(", ")}`);
+          const ticker = Object.values(json.result ?? {})[0];
+          const price = ticker ? parseFloat(ticker.c[0]) : null;
+          if (!price) throw new Error("STX price missing from Kraken response");
           resolve(price);
         } catch (e) {
           reject(e);
