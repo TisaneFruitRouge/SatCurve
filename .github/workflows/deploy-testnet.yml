@@ -10,34 +10,23 @@ env:
   CLARINET_VERSION: '3.14.0'
 
 jobs:
-  # ─── Job 1: detect whether contracts changed since last testnet tag ───────
+  # ─── Job 1: detect whether contracts changed ─────────────────────────────
   check-contracts:
     name: Check contract changes
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.diff.outputs.changed }}
+      changed: ${{ steps.filter.outputs.contracts }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # full history needed for tag comparison
 
-      - name: Detect changes since last testnet tag
-        id: diff
-        run: |
-          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v.*-testnet$' | sed -n '2p')
-          if [ -z "$PREV_TAG" ]; then
-            echo "No previous testnet tag — contracts will be deployed"
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            DIFF=$(git diff "$PREV_TAG" HEAD -- contracts/ Clarinet.toml)
-            if [ -n "$DIFF" ]; then
-              echo "Contract changes detected since $PREV_TAG"
-              echo "changed=true" >> $GITHUB_OUTPUT
-            else
-              echo "No contract changes since $PREV_TAG — skipping contract deploy"
-              echo "changed=false" >> $GITHUB_OUTPUT
-            fi
-          fi
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            contracts:
+              - 'contracts/**'
+              - 'Clarinet.toml'
+              - 'deployments/**'
 
   # ─── Job 2: deploy Clarity contracts to Stacks Testnet ───────────────────
   deploy-contracts:
