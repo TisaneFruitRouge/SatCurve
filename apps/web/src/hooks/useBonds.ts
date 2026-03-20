@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { callReadOnlyFunction, cvToValue, uintCV } from "@stacks/transactions";
+import { cvToValue, uintCV } from "@stacks/transactions";
+import { callReadOnly } from "../lib/rpc";
 import { stacksNetwork } from "../lib/stacks";
 import { CONTRACT_ADDRESSES } from "../lib/contracts";
 import type { Bond } from "@satcurve/types";
 
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 30_000;
 const NFT_PAGE_LIMIT = 200;
 
 function parseContractId(fullAddress: string) {
@@ -77,7 +78,7 @@ export function useBonds(address: string | null): UseBondsResult {
         const [ptIds, ytIds, bondCountRes] = await Promise.all([
           fetchNftBondIds(apiUrl, address!, ptAsset),
           fetchNftBondIds(apiUrl, address!, ytAsset),
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress,
             contractName,
             functionName: "get-bond-count",
@@ -97,7 +98,7 @@ export function useBonds(address: string | null): UseBondsResult {
         const [ptListingResults, ytListingResults] = await Promise.all([
           Promise.all(
             bondIdsRange.map((id) =>
-              callReadOnlyFunction({
+              callReadOnly({
                 contractAddress: mktCA,
                 contractName: mktCN,
                 functionName: "get-pt-listing",
@@ -109,7 +110,7 @@ export function useBonds(address: string | null): UseBondsResult {
           ),
           Promise.all(
             bondIdsRange.map((id) =>
-              callReadOnlyFunction({
+              callReadOnly({
                 contractAddress: mktCA,
                 contractName: mktCN,
                 functionName: "get-yt-listing",
@@ -153,7 +154,7 @@ export function useBonds(address: string | null): UseBondsResult {
         // Fetch bond data for every relevant ID in parallel
         const bondDataResults = await Promise.all(
           allIds.map((id) =>
-            callReadOnlyFunction({
+            callReadOnly({
               contractAddress,
               contractName,
               functionName: "get-bond",

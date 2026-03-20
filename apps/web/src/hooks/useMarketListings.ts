@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { callReadOnlyFunction, cvToValue, uintCV } from "@stacks/transactions";
+import { cvToValue, uintCV } from "@stacks/transactions";
+import { callReadOnly } from "../lib/rpc";
 import { stacksNetwork } from "../lib/stacks";
 import { CONTRACT_ADDRESSES } from "../lib/contracts";
 
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 30_000;
 
 function parseContractId(fullAddress: string) {
   const parts = fullAddress.split(".");
@@ -48,7 +49,7 @@ export function useMarketListings(): MarketListings {
 
     async function load() {
       try {
-        const bondCountRes = await callReadOnlyFunction({
+        const bondCountRes = await callReadOnly({
           contractAddress: bfCA,
           contractName: bfCN,
           functionName: "get-bond-count",
@@ -63,7 +64,7 @@ export function useMarketListings(): MarketListings {
         const [ptListingResults, ytListingResults] = await Promise.all([
           // NFT PT listings -- one per bond
           Promise.all(bondIds.map((id) =>
-            callReadOnlyFunction({
+            callReadOnly({
               contractAddress: mktCA, contractName: mktCN,
               functionName: "get-pt-listing", functionArgs: [uintCV(id)],
               network: stacksNetwork, senderAddress,
@@ -71,7 +72,7 @@ export function useMarketListings(): MarketListings {
           )),
           // NFT YT listings
           Promise.all(bondIds.map((id) =>
-            callReadOnlyFunction({
+            callReadOnly({
               contractAddress: mktCA, contractName: mktCN,
               functionName: "get-yt-listing", functionArgs: [uintCV(id)],
               network: stacksNetwork, senderAddress,

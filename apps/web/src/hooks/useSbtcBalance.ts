@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { callReadOnlyFunction, cvToValue, principalCV } from "@stacks/transactions";
+import { cvToValue, principalCV } from "@stacks/transactions";
+import { callReadOnly } from "../lib/rpc";
 import { stacksNetwork } from "../lib/stacks";
 import { CONTRACT_ADDRESSES } from "../lib/contracts";
 
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 30_000;
 
 function parseContractId(fullAddress: string) {
   const parts = fullAddress.split(".");
@@ -36,7 +37,7 @@ export function useSbtcBalance(address: string | null): UseSbtcBalanceResult {
 
     async function load() {
       try {
-        const res = await callReadOnlyFunction({
+        const res = await callReadOnly({
           contractAddress,
           contractName,
           functionName: "get-balance-available",

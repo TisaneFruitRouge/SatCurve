@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "@tanstack/react-router";
 import { openContractCall } from "@stacks/connect";
-import { callReadOnlyFunction, cvToValue, uintCV, PostConditionMode } from "@stacks/transactions";
+import { cvToValue, uintCV, PostConditionMode } from "@stacks/transactions";
+import { callReadOnly } from "../lib/rpc";
 import { useWallet } from "../hooks/useWallet";
 import { useBlockHeight } from "../hooks/useBlockHeight";
 import { BlockTooltip } from "../components/BlockTooltip";
@@ -101,7 +102,7 @@ export function BondDetailPage() {
           CONTRACT_ADDRESSES.market,
         );
         const [bondRes, ptOwnerRes, ytOwnerRes, ptListRes, ytListRes] = await Promise.all([
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress,
             contractName,
             functionName: "get-bond",
@@ -109,7 +110,7 @@ export function BondDetailPage() {
             network: stacksNetwork,
             senderAddress,
           }),
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress,
             contractName,
             functionName: "get-pt-owner",
@@ -117,7 +118,7 @@ export function BondDetailPage() {
             network: stacksNetwork,
             senderAddress,
           }),
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress,
             contractName,
             functionName: "get-yt-owner",
@@ -125,7 +126,7 @@ export function BondDetailPage() {
             network: stacksNetwork,
             senderAddress,
           }),
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress: mktCA,
             contractName: mktCN,
             functionName: "get-pt-listing",
@@ -133,7 +134,7 @@ export function BondDetailPage() {
             network: stacksNetwork,
             senderAddress,
           }),
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress: mktCA,
             contractName: mktCN,
             functionName: "get-yt-listing",
@@ -197,7 +198,7 @@ export function BondDetailPage() {
     }
 
     void load();
-    const interval = setInterval(() => void load(), 5_000);
+    const interval = setInterval(() => void load(), 30_000);
     return () => clearInterval(interval);
   }, [bondId, address, tick]);
 

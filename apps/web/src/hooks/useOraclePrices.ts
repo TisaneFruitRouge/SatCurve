@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { callReadOnlyFunction, cvToValue } from "@stacks/transactions";
+import { cvToValue } from "@stacks/transactions";
+import { callReadOnly } from "../lib/rpc";
 import { stacksNetwork } from "../lib/stacks";
 import { CONTRACT_ADDRESSES } from "../lib/contracts";
 
@@ -45,7 +46,7 @@ export function useOraclePrices(): OraclePrices {
     async function load() {
       try {
         const [btcRes, aprRes] = await Promise.all([
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress,
             contractName,
             functionName: "get-btc-price",
@@ -53,7 +54,7 @@ export function useOraclePrices(): OraclePrices {
             network: stacksNetwork,
             senderAddress: contractAddress,
           }),
-          callReadOnlyFunction({
+          callReadOnly({
             contractAddress,
             contractName,
             functionName: "get-stacking-apr",
